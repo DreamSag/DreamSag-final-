@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSag - Login</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0866ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <style>
+        :root { --primary: #0866ff; --bg: #f0f2f5; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 35px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
+        .brand { color: var(--primary); font-size: 32px; font-weight: 900; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
+        input { width: 100%; padding: 14px; margin: 10px 0; border: 1.5px solid #ddd; border-radius: 12px; box-sizing: border-box; outline: none; transition: 0.3s; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 8px rgba(8,102,255,0.2); }
+        .btn { background: var(--primary); color: white; border: none; width: 100%; padding: 15px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px; transition: 0.3s; }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
+        
+        .footer-links { margin-top: 25px; font-size: 14px; color: #65676b; }
+        .footer-links a { color: var(--primary); text-decoration: none; font-weight: 600; cursor: pointer; }
+        
+        .forgot-pass { display: block; text-align: right; font-size: 13px; margin-top: -5px; margin-bottom: 10px; color: #65676b; text-decoration: none; cursor: pointer; }
+        .forgot-pass:hover { text-decoration: underline; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="brand">DREAM<span style="color: #00c6ff;">SAG</span></div>
+    <h2 style="font-size: 18px; margin-bottom: 20px; color: #444;">Sign In to Continue</h2>
+    
+    <input type="email" id="login-email" placeholder="Email Address">
+    <input type="password" id="login-pass" placeholder="Password">
+    
+    <a class="forgot-pass" id="forgot-btn">Forgot Password?</a>
+    
+    <button class="btn" id="login-btn">Login</button>
+    
+    <div class="footer-links">
+        Don't have an account? <br> 
+        <a id="go-to-reg">Create New Account</a>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
+        authDomain: "dreamsag-17ed9.firebaseapp.com",
+        projectId: "dreamsag-17ed9",
+        databaseURL: "https://dreamsag-17ed9-default-rtdb.firebaseio.com/",
+        appId: "1:414865998660:web:5b81b4249ff9e359594d11"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // Redirect to Register
+    document.getElementById('go-to-reg').onclick = () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const ref = urlParams.get('ref');
+        window.location.href = ref ? `register.html?ref=${ref}` : "register.html";
+    };
+
+    // Forgot Password
+    document.getElementById('forgot-btn').onclick = function() {
+        const email = document.getElementById('login-email').value;
+        if (!email) {
+            alert("Pehle apna Email likhein, phir 'Forgot Password' par click karein.");
+            return;
+        }
+
+        sendPasswordResetEmail(auth, email)
+            .then(() => {
+                alert("Reset Link aapke Email par bhej diya gaya hai!");
+            })
+            .catch((error) => {
+                alert("Error: " + error.message);
+            });
+    };
+
+    // Login Logic
+    document.getElementById('login-btn').onclick = function() {
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-pass').value;
+
+        if (!email || !pass) return alert("Please enter email and password");
+
+        const btn = this;
+        btn.innerText = "Processing...";
+        btn.disabled = true;
+
+        signInWithEmailAndPassword(auth, email, pass)
+            .then(() => {
+                window.location.href = "dashboard.html";
+            })
+            .catch(err => {
+                alert("Login Failed: Email ya Password galat hai.");
+                btn.innerText = "Login";
+                btn.disabled = false;
+            });
+    };
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSag - History</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <style>
+        :root { --primary: #0866ff; --bg: #f4f7fa; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        
+        .header { display: flex; align-items: center; gap: 15px; margin-bottom: 25px; }
+        .back-btn { background: white; border: none; width: 45px; height: 45px; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); cursor: pointer; color: #333; }
+        
+        .tabs { display: flex; background: #e2e8f0; padding: 5px; border-radius: 15px; margin-bottom: 20px; }
+        .tab { flex: 1; padding: 12px; text-align: center; border-radius: 12px; cursor: pointer; font-weight: 700; color: #64748b; transition: 0.3s; }
+        .tab.active { background: white; color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+
+        .list-container { display: flex; flex-direction: column; gap: 12px; }
+        .card { background: white; padding: 18px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; justify-content: space-between; align-items: center; border: 1px solid #f1f2f6; }
+        .card-info b { display: block; font-size: 16px; color: #1c1e21; }
+        .card-info small { color: #94a3b8; font-size: 12px; }
+        .status { padding: 6px 12px; border-radius: 10px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+        .status.success { background: #e1f9f0; color: #10b981; }
+        .status.pending { background: #fff4e5; color: #f59e0b; }
+        .status.rejected { background: #fee2e2; color: #ef4444; }
+        
+        .empty-msg { text-align: center; color: #94a3b8; margin-top: 50px; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <button class="back-btn" onclick="window.location.href='dashboard.html'"><i class="fas fa-chevron-left"></i></button>
+        <h2 style="margin:0; font-weight:800;">Transaction History</h2>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="loadHistory('deposits', this)">Deposits</div>
+        <div class="tab" onclick="loadHistory('withdrawals', this)">Withdrawals</div>
+    </div>
+
+    <div id="history-list" class="list-container">
+        </div>
+
+    <script>
+        const config = {
+            apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
+            authDomain: "dreamsag-17ed9.firebaseapp.com",
+            projectId: "dreamsag-17ed9",
+            databaseURL: "https://dreamsag-17ed9-default-rtdb.firebaseio.com/",
+            appId: "1:414865998660:web:5b81b4249ff9e359594d11"
+        };
+        firebase.initializeApp(config);
+        const db = firebase.database();
+        const auth = firebase.auth();
+
+        function loadHistory(path, el) {
+            // Tab switch logic
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const listDiv = document.getElementById('history-list');
+            listDiv.innerHTML = '<div class="empty-msg">Loading history...</div>';
+
+            // Indexing ka istamaal karte huye data mangwana
+            db.ref(path).orderByChild('uid').equalTo(user.uid).once('value', (snapshot) => {
+                listDiv.innerHTML = '';
+                if (!snapshot.exists()) {
+                    listDiv.innerHTML = '<div class="empty-msg">No transactions found.</div>';
+                    return;
+                }
+
+                snapshot.forEach((child) => {
+                    const data = child.val();
+                    const statusClass = data.status.toLowerCase();
+                    listDiv.innerHTML += `
+                        <div class="card">
+                            <div class="card-info">
+                                <b>$${parseFloat(data.amount).toFixed(2)}</b>
+                                <small>${new Date(data.timestamp).toLocaleString()}</small>
+                            </div>
+                            <div class="status ${statusClass}">${data.status}</div>
+                        </div>
+                    `;
+                });
+            });
+        }
+
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                loadHistory('deposits', document.querySelector('.tab.active'));
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+</body>
+</html>

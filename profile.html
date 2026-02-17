@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSag - My Profile</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root { --primary: #0866ff; --bg: #f0f2f5; --text: #1c1e21; --accent: #00c6ff; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; justify-content: center; }
+        
+        .card { 
+            background: white; width: 100%; max-width: 450px; padding: 30px 20px; 
+            border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.05); 
+            text-align: center; box-sizing: border-box; border: 1px solid #fff;
+        }
+        
+        .avatar-wrapper { position: relative; width: 110px; height: 110px; margin: 0 auto 15px; }
+        .avatar { 
+            width: 100%; height: 100%; background: linear-gradient(135deg, var(--primary), var(--accent)); 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+            font-size: 45px; border: 4px solid white; box-shadow: 0 8px 20px rgba(8,102,255,0.2); color: white; 
+        }
+        .online-dot { 
+            position: absolute; bottom: 8px; right: 8px; width: 18px; height: 18px; 
+            background: #28a745; border: 3px solid white; border-radius: 50%; 
+        }
+        
+        h2 { margin: 0; color: var(--text); font-size: 22px; font-weight: 900; }
+        .user-status { 
+            font-size: 11px; color: #28a745; font-weight: 800; background: #e7f7ed; 
+            padding: 6px 15px; border-radius: 20px; display: inline-block; 
+            margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+
+        .info-group { text-align: left; margin-top: 30px; }
+        .info-item { 
+            margin-bottom: 12px; display: flex; justify-content: space-between; 
+            align-items: center; background: #f8f9fa; padding: 15px; 
+            border-radius: 18px; border: 1px solid #f0f2f5;
+        }
+        .info-item label { display: block; font-size: 10px; color: #8a8d91; text-transform: uppercase; font-weight: 800; margin-bottom: 3px; }
+        .info-item p { margin: 0; font-size: 14px; color: var(--text); font-weight: 700; word-break: break-all; }
+        .info-icon { width: 35px; height: 35px; background: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+
+        .about-section { 
+            background: linear-gradient(135deg, #ffffff 0%, #f4f8ff 100%); 
+            border-radius: 24px; padding: 20px; margin-top: 25px; 
+            text-align: left; border: 1px solid #e1e9ff; position: relative; 
+        }
+        .about-section h3 { margin: 0 0 10px; color: var(--primary); font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+        .about-section p { font-size: 12.5px; line-height: 1.6; color: #4e5d78; margin-bottom: 15px; font-weight: 500; }
+        
+        .office-info { background: white; padding: 15px; border-radius: 15px; border: 1px dashed #cbdcf7; font-size: 11.5px; color: #65676b; line-height: 1.5; }
+        .office-info b { color: var(--primary); display: block; margin-bottom: 5px; font-size: 12px; }
+
+        .back-btn { 
+            display: block; margin-top: 25px; color: #8a8d91; 
+            text-decoration: none; font-weight: 700; font-size: 14px; 
+            padding: 10px; transition: 0.3s; 
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="avatar-wrapper">
+            <div class="avatar"><i class="fas fa-user"></i></div>
+            <div class="online-dot"></div>
+        </div>
+        
+        <h2 id="u-name">Verified Member</h2>
+        <div class="user-status"><i class="fas fa-check-circle"></i> Fully Secured</div>
+        
+        <div class="info-group">
+            <div class="info-item">
+                <div><label>Account ID / Email</label><p id="u-email">Loading...</p></div>
+                <div class="info-icon"><i class="fas fa-envelope"></i></div>
+            </div>
+            <div class="info-item">
+                <div><label>Total Spin Earnings</label><p id="u-spin-won">$0.00</p></div>
+                <div class="info-icon" style="color: #f39c12;"><i class="fas fa-coins"></i></div>
+            </div>
+            <div class="info-item">
+                <div><label>Registration Date</label><p id="u-join-date">---</p></div>
+                <div class="info-icon" style="color: #e74c3c;"><i class="fas fa-calendar-alt"></i></div>
+            </div>
+        </div>
+
+        <div class="about-section">
+            <h3><i class="fas fa-globe-americas"></i> About DreamSag</h3>
+            <p>DreamSag is a leading decentralized platform leveraging <b>Smart Contract Technology</b> to provide stable financial growth. Our system is built for longevity and transparency.</p>
+            
+            <div class="office-info">
+                <b><i class="fas fa-building"></i> Head Office:</b>
+                DreamSag Digital Heights, Office #402, <br>
+                Sheikh Zayed Road, Dubai, UAE.
+            </div>
+        </div>
+
+        <a href="dashboard.html" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = { 
+            apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY", 
+            authDomain: "dreamsag-17ed9.firebaseapp.com", 
+            projectId: "dreamsag-17ed9", 
+            databaseURL: "https://dreamsag-17ed9-default-rtdb.firebaseio.com/", 
+            appId: "1:414865998660:web:5b81b4249ff9e359594d11" 
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                onValue(ref(db, 'users/' + user.uid), (snap) => {
+                    const data = snap.val();
+                    if(data) {
+                        document.getElementById('u-email').innerText = data.email || user.email;
+                        document.getElementById('u-spin-won').innerText = "$" + (data.spinEarnings || 0).toFixed(2);
+                        
+                        // Date formatting fix
+                        let joinDate = data.joinDate || "Recent";
+                        if(joinDate.includes('T')) { // if ISO string
+                            joinDate = new Date(joinDate).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+                        }
+                        document.getElementById('u-join-date').innerText = joinDate;
+                    }
+                });
+            } else { window.location.href = "index.html"; }
+        });
+    </script>
+</body>
+</html>

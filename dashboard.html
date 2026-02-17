@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSag - Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0866ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <style>
+        :root { --primary: #0866ff; --light-blue: #00c6ff; --bg: #f0f2f5; --text: #1c1e21; --gold: #ffd700; --success: #28a745; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding-bottom: 20px; }
+        
+        .top-bar { background: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; }
+        .icon-group { display: flex; gap: 12px; align-items: center; }
+        .top-icon { text-decoration: none; font-size: 20px; cursor: pointer; color: #444; transition: 0.3s; }
+        .top-icon:hover { color: var(--primary); }
+        
+        .id-badge { background: #eef3ff; padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; border: 1px solid #d0e0ff; cursor: pointer; }
+        .id-value { font-size: 11px; font-weight: 800; color: #333; font-family: monospace; }
+        .logout-btn { background: #ff4d4d; color: white; border: none; padding: 8px 16px; border-radius: 10px; font-weight: bold; font-size: 13px; cursor: pointer; }
+
+        #admin-btn { display: none; background: #ff4757; color: white; padding: 12px; border-radius: 15px; text-decoration: none; font-weight: 800; margin: 10px 20px; text-align: center; font-size: 14px; box-shadow: 0 4px 10px rgba(255, 71, 87, 0.3); border: 2px solid #fff; }
+
+        .brand-container { text-align: center; padding: 20px 0 10px; }
+        .brand-logo { font-size: 32px; font-weight: 900; color: var(--primary); letter-spacing: 2px; text-transform: uppercase; margin: 0; }
+        .brand-logo span { color: var(--light-blue); }
+
+        .wallets-container { display: flex; flex-direction: column; gap: 15px; padding: 10px 20px; }
+        .wallet-card { padding: 25px 20px; border-radius: 24px; color: white; position: relative; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .deposit-wallet { background: linear-gradient(135deg, #0866ff, #00c6ff); }
+        .earning-wallet { background: linear-gradient(135deg, #1d2b64, #f8ad9d); }
+        .wallet-card h3 { margin: 0; font-size: 12px; text-transform: uppercase; opacity: 0.85; font-weight: 600; }
+        .wallet-card h1 { margin: 8px 0; font-size: 36px; font-weight: 800; }
+        .dep-btn { background: white; color: var(--primary); border: none; padding: 10px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 5px; }
+
+        .wd-btn { width: 90%; margin: 10px 20px; background: #ffebee; color: #ff4d4d; border: none; padding: 18px; border-radius: 20px; font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; box-sizing: border-box; font-size: 16px;}
+
+        .checkin-section { background: white; margin: 15px 20px; padding: 18px; border-radius: 22px; border: 1px solid #e4e6eb; }
+        .checkin-title { font-weight: 800; font-size: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; }
+        .checkin-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .day-box { background: #f0f2f5; padding: 8px 2px; border-radius: 10px; text-align: center; font-size: 9px; font-weight: 800; color: #65676b; border: 1px solid transparent; }
+        .day-box.active { background: #eef3ff; border-color: var(--primary); color: var(--primary); }
+        .day-box.claimed { background: var(--success); color: white; }
+        .checkin-btn { width: 100%; margin-top: 12px; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 800; cursor: pointer; }
+        .checkin-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        .spin-box { background: white; margin: 15px 20px; padding: 15px; border-radius: 22px; display: flex; justify-content: space-between; align-items: center; border: 2px solid var(--gold); }
+        .play-spin-btn { background: linear-gradient(to right, var(--gold), #ffa500); color: black; border: none; padding: 10px 20px; border-radius: 12px; font-weight: 800; font-size: 13px; }
+
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 10px 20px; }
+        .menu-item { background: white; padding: 20px; border-radius: 20px; text-decoration: none; text-align: center; border: 1px solid #e4e6eb; color: var(--text); }
+        .menu-item span { font-size: 28px; display: block; margin-bottom: 8px; }
+        .menu-item p { margin: 0; font-weight: 700; font-size: 13px; }
+
+        .section-title { padding: 20px 25px 10px; font-weight: 800; font-size: 18px; }
+        .plan-card { background: white; margin: 0 20px 10px; padding: 18px; border-radius: 22px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e4e6eb; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .plan-info h4 { margin: 0; font-size: 16px; color: #111; }
+        .plan-info p { margin: 4px 0 0; font-size: 12px; color: #666; font-weight: 600; }
+        .plan-btn { background: var(--primary); color: white; border: none; padding: 12px 18px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 13px; }
+
+        .info-note-box { background: linear-gradient(to right, #eef4ff, #ffffff); margin: 20px; padding: 20px; border-radius: 20px; border-left: 5px solid var(--primary); box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .info-note-box h4 { margin: 0 0 10px 0; color: var(--primary); font-size: 16px; display: flex; align-items: center; gap: 8px; }
+        .info-note-box ul { margin: 0; padding-left: 20px; }
+        .info-note-box li { font-size: 12px; color: #444; margin-bottom: 8px; line-height: 1.6; font-weight: 600; }
+
+        /* FOOTER LOCKED STYLES */
+        .master-footer { background: #1c1e21; color: #aeb2b7; padding: 50px 20px 30px; margin-top: 40px; border-radius: 30px 30px 0 0; }
+        .footer-logo { font-size: 24px; font-weight: 900; color: white; margin-bottom: 15px; }
+        .footer-logo span { color: var(--light-blue); }
+        .footer-links { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; margin-bottom: 30px; pointer-events: none; }
+        .footer-links a { color: #666; text-decoration: none; font-size: 13px; display: block; margin-bottom: 10px; cursor: default; }
+        .footer-info { border-top: 1px solid #3e4042; padding-top: 25px; font-size: 11px; line-height: 1.8; }
+        .social-icons { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; pointer-events: none; opacity: 0.6; }
+        .social-icons i { font-size: 20px; color: white; }
+
+        .service-fab { position: fixed; bottom: 30px; right: 20px; background: #25D366; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 20px rgba(37,211,102,0.4); z-index: 1000; border: 2px solid white; cursor: pointer; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <div class="icon-group">
+            <a href="profile.html" class="top-icon"><i class="fas fa-user-circle"></i></a>
+            <a href="history.html" class="top-icon"><i class="fas fa-history"></i></a>
+            <div class="id-badge" onclick="copyUserID()">
+                <span id="user-id-display" class="id-value">......</span>
+                <i class="far fa-copy" style="font-size: 12px; color: var(--primary);"></i>
+            </div>
+            <a href="notification.html" class="top-icon"><i class="fas fa-bell"></i></a>
+        </div>
+        <button class="logout-btn" id="logout-btn">Logout</button>
+    </div>
+
+    <a href="admin.html" id="admin-btn">⚡ ADMIN CONTROL PANEL</a>
+
+    <div class="brand-container">
+        <h1 class="brand-logo">DREAM<span>SAG</span></h1>
+    </div>
+
+    <div class="wallets-container">
+        <div class="wallet-card earning-wallet">
+            <h3>Withdrawable Balance</h3>
+            <h1 id="earning-display">$0.00</h1>
+        </div>
+
+        <div class="wallet-card deposit-wallet">
+            <h3>Investment Wallet (Deposit)</h3>
+            <h1 id="deposit-display">$0.00</h1>
+            <button class="dep-btn" onclick="window.location.href='deposit.html'">Deposit Funds +</button>
+        </div>
+    </div>
+
+    <button class="wd-btn" onclick="window.location.href='withdraw.html'">Withdraw Now <i class="fas fa-paper-plane" style="margin-left: 5px;"></i></button>
+
+    <div class="checkin-section">
+        <div class="checkin-title">📅 Daily Check-in <span id="checkin-streak" style="color:var(--primary)">Day 1</span></div>
+        <div class="checkin-grid">
+            <div class="day-box" id="day-1">D1<br>$0.2</div>
+            <div class="day-box" id="day-2">D2<br>$0.3</div>
+            <div class="day-box" id="day-3">D3<br>$0.5</div>
+            <div class="day-box" id="day-4">D4<br>$0.6</div>
+            <div class="day-box" id="day-5">D5<br>$0.8</div>
+            <div class="day-box" id="day-6">D6<br>$0.9</div>
+            <div class="day-box" id="day-7">D7<br>$1.0</div>
+        </div>
+        <button class="checkin-btn" id="checkin-btn">Claim Today's Reward</button>
+    </div>
+
+    <div class="spin-box">
+        <div style="font-weight: 800; font-size: 14px;">🎰 Lucky Spins: <span id="spin-count-display" style="color:var(--gold)">0</span></div>
+        <button class="play-spin-btn" onclick="window.location.href='spin.html'">PLAY NOW</button>
+    </div>
+
+    <div class="menu-grid">
+        <a href="investment.html" class="menu-item"><span>📈</span><p>My Assets</p></a>
+        <a href="earning.html" class="menu-item"><span>💰</span><p>Reports</p></a>
+        <a href="team.html" class="menu-item"><span>👥</span><p>My Team</p></a>
+        <a href="invite.html" class="menu-item"><span>🔗</span><p>Invite</p></a>
+    </div>
+
+    <div class="section-title">Exclusive Plans</div>
+    <div id="plans-container"></div>
+
+    <div class="info-note-box">
+        <h4><i class="fas fa-info-circle"></i> Zaroori Maloomat</h4>
+        <ul>
+            <li><b>Daily Profit:</b> Aapka profit har raat 12 baje auto-add kar diya jata hai.</li>
+            <li><b>Withdrawal:</b> Withdraw request 24 ghantay ke andar approve ho jati hai.</li>
+            <li><b>Referral Bonus:</b> Level 1 par aapko 10% direct investment bonus milta hai.</li>
+            <li><b>Security:</b> Apna account password kisi ke sath share na karein.</li>
+        </ul>
+    </div>
+
+    <a href="https://wa.me/923289024682" class="service-fab" target="_blank">
+        <i class="fab fa-whatsapp" style="font-size: 35px; color: white;"></i>
+    </a>
+
+    <footer class="master-footer">
+        <div class="footer-logo">DREAM<span>SAG</span></div>
+        <div class="social-icons">
+            <i class="fab fa-facebook"></i>
+            <i class="fab fa-telegram"></i>
+            <i class="fab fa-twitter"></i>
+            <i class="fab fa-instagram"></i>
+        </div>
+        <div class="footer-links">
+            <div>
+                <a href="#">About Us</a>
+                <a href="#">Terms & Conditions</a>
+                <a href="#">Privacy Policy</a>
+            </div>
+            <div>
+                <a href="#">Help Center</a>
+                <a href="#">FAQ</a>
+                <a href="#">Contact Support</a>
+            </div>
+        </div>
+        <div class="footer-info">
+            © 2026 DreamSag Global Ltd. All Rights Reserved.
+        </div>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getDatabase, ref, onValue, update, get, set, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
+            authDomain: "dreamsag-17ed9.firebaseapp.com",
+            projectId: "dreamsag-17ed9",
+            databaseURL: "https://dreamsag-17ed9-default-rtdb.firebaseio.com/",
+            appId: "1:414865998660:web:5b81b4249ff9e359594d11"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        const plans = [
+            { id: 1, price: 30, rate: 0.02, name: "Level 1" },
+            { id: 2, price: 60, rate: 0.022, name: "Level 2" },
+            { id: 3, price: 90, rate: 0.025, name: "Level 3" },
+            { id: 4, price: 120, rate: 0.028, name: "Level 4" },
+            { id: 5, price: 150, rate: 0.03, name: "Level 5" }
+        ];
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('user-id-display').innerText = user.uid.substring(0, 8).toUpperCase();
+                if(user.email === "dreamsagweb@gmail.com") document.getElementById('admin-btn').style.display = 'block';
+
+                onValue(ref(db, 'users/' + user.uid), (snapshot) => {
+                    const data = snapshot.val() || {};
+                    document.getElementById('deposit-display').innerText = "$" + (data.depositBalance || 0).toFixed(2);
+                    document.getElementById('earning-display').innerText = "$" + (data.earningBalance || 0).toFixed(2);
+                    document.getElementById('spin-count-display').innerText = data.spinCount || 0;
+                    
+                    checkAndAddProfit(user.uid, data);
+                    renderPlans(data);
+                    updateCheckInUI(data);
+                });
+            } else { window.location.href = "index.html"; }
+        });
+
+        async function checkAndAddProfit(uid, userData) {
+            const investments = userData.activeInvestments;
+            if (!investments) return;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayTime = today.getTime();
+            let totalNewProfit = 0;
+            let hasChanges = false;
+            const updates = {};
+            for (let key in investments) {
+                const inv = investments[key];
+                const lastClaim = inv.lastProfitClaim || inv.timestamp;
+                if (lastClaim < todayTime) {
+                    const diffTime = todayTime - lastClaim;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    if (diffDays >= 1) {
+                        const dailyProfit = inv.amount * inv.rate;
+                        totalNewProfit += (dailyProfit * diffDays);
+                        updates[`users/${uid}/activeInvestments/${key}/lastProfitClaim`] = todayTime;
+                        hasChanges = true;
+                    }
+                }
+            }
+            if (hasChanges) {
+                updates[`users/${uid}/earningBalance`] = (userData.earningBalance || 0) + totalNewProfit;
+                update(ref(db), updates);
+            }
+        }
+
+        function renderPlans(userData = {}) {
+            const container = document.getElementById('plans-container');
+            const activeInvestments = userData.activeInvestments || {};
+            const activePlanIds = Object.values(activeInvestments).map(inv => inv.planId);
+
+            container.innerHTML = plans.map(p => {
+                const isActive = activePlanIds.includes(p.id);
+                return `
+                    <div class="plan-card">
+                        <div class="plan-info"><h4>${p.name}</h4><p>$${p.price} • ${(p.rate*100).toFixed(1)}% Daily</p></div>
+                        <button class="plan-btn" 
+                            style="${isActive ? 'background:#28a745; cursor:default;' : ''}"
+                            onclick="${isActive ? '' : `buyPlan(${p.id}, ${p.price})`}">
+                            ${isActive ? '<i class="fas fa-check"></i> Active' : 'Invest Now'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.buyPlan = async (planId, price) => {
+            const user = auth.currentUser;
+            const snap = await get(ref(db, 'users/' + user.uid));
+            const data = snap.val();
+
+            if ((data.depositBalance || 0) < price) {
+                return Swal.fire({ icon: 'error', title: 'Insufficient Balance', text: 'Please deposit funds to buy this plan.', confirmButtonColor: '#0866ff' });
+            }
+
+            Swal.fire({
+                title: 'Confirm Investment',
+                text: `Do you want to invest $${price} in Level ${planId}?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Invest',
+                confirmButtonColor: '#0866ff',
+                cancelButtonColor: '#ff4d4d'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const planKey = push(ref(db, 'users/' + user.uid + '/activeInvestments')).key;
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    
+                    const updates = {};
+                    updates[`users/${user.uid}/depositBalance`] = parseFloat(data.depositBalance) - price;
+                    updates[`users/${user.uid}/activeInvestments/${planKey}`] = {
+                        planId: planId,
+                        amount: price,
+                        rate: plans.find(p => p.id === planId).rate,
+                        timestamp: Date.now(),
+                        lastProfitClaim: today.getTime()
+                    };
+
+                    update(ref(db), updates).then(() => {
+                        Swal.fire('Success!', 'Investment Active Now', 'success');
+                    });
+                }
+            });
+        };
+
+        const checkinRewards = [0.2, 0.3, 0.5, 0.6, 0.8, 0.9, 1.0];
+        function updateCheckInUI(data) {
+            const streak = data.checkinStreak || 0;
+            const lastCheckin = data.lastCheckinDate || 0;
+            const now = new Date();
+            const todayStr = now.toDateString();
+            const lastStr = new Date(lastCheckin).toDateString();
+            document.getElementById('checkin-streak').innerText = `Day ${streak + 1}`;
+            for(let i=1; i<=7; i++) {
+                const box = document.getElementById(`day-${i}`);
+                box.classList.remove('active', 'claimed');
+                if(i <= streak) box.classList.add('claimed');
+                if(i === streak + 1) box.classList.add('active');
+            }
+            const btn = document.getElementById('checkin-btn');
+            if(todayStr === lastStr) {
+                btn.disabled = true;
+                btn.innerText = "Already Claimed Today";
+            } else {
+                btn.disabled = false;
+                btn.innerText = "Claim Today's Reward";
+            }
+        }
+
+        document.getElementById('checkin-btn').onclick = async () => {
+            const user = auth.currentUser;
+            const snap = await get(ref(db, 'users/' + user.uid));
+            const data = snap.val();
+            const now = Date.now();
+            let streak = data.checkinStreak || 0;
+            const reward = checkinRewards[streak % 7];
+            const updates = {
+                [`users/${user.uid}/earningBalance`]: (data.earningBalance || 0) + reward,
+                [`users/${user.uid}/checkinStreak`]: (streak + 1) % 7,
+                [`users/${user.uid}/lastCheckinDate`]: now
+            };
+            update(ref(db), updates).then(() => {
+                Swal.fire({ title: 'Bonus Claimed!', text: `You earned $${reward}`, icon: 'success', confirmButtonColor: '#0866ff' });
+            });
+        };
+
+        window.copyUserID = () => {
+            navigator.clipboard.writeText(auth.currentUser.uid).then(() => {
+                Swal.fire({ title: 'ID Copied!', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, icon: 'success' });
+            });
+        }
+
+        document.getElementById('logout-btn').onclick = () => {
+            Swal.fire({
+                title: 'Logout?', text: 'Are you sure you want to exit?', icon: 'warning',
+                showCancelButton: true, confirmButtonText: 'Logout', confirmButtonColor: '#ff4d4d'
+            }).then((result) => {
+                if (result.isConfirmed) signOut(auth);
+            });
+        };
+    </script>
+</body>
+</html>

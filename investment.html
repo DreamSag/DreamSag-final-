@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Investments - DreamSag</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root { --primary: #0866ff; --bg: #f0f2f5; --success: #28a745; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 450px; }
+        
+        .header { display: flex; align-items: center; margin-bottom: 25px; gap: 15px; }
+        .back-btn { text-decoration: none; font-size: 20px; color: #333; background: white; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+
+        .total-card { 
+            background: linear-gradient(135deg, #00b09b, #96c93d); 
+            color: white; padding: 35px 20px; border-radius: 30px; text-align: center;
+            box-shadow: 0 15px 30px rgba(0,176,155,0.25); margin-bottom: 30px;
+            position: relative; overflow: hidden;
+        }
+        .total-card::after { content: ''; position: absolute; top: -50%; right: -50%; width: 200px; height: 200px; background: rgba(255,255,255,0.1); border-radius: 50%; }
+        
+        .total-card h3 { margin: 0; font-size: 13px; text-transform: uppercase; opacity: 0.8; letter-spacing: 1px; font-weight: 700; }
+        .total-card h1 { margin: 10px 0 0; font-size: 42px; font-weight: 900; }
+
+        .section-title { font-weight: 800; font-size: 16px; color: #1c1e21; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        
+        .active-plan-card {
+            background: white; padding: 25px; border-radius: 25px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.05);
+            position: relative;
+        }
+        .plan-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .plan-badge { background: #e8f5e9; color: var(--success); padding: 6px 15px; border-radius: 50px; font-size: 12px; font-weight: 800; }
+        
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .info-item { background: #f8fafc; padding: 15px; border-radius: 18px; text-align: left; }
+        .info-item span { display: block; font-size: 11px; color: #8a8d91; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
+        .info-item b { font-size: 16px; color: #1c1e21; }
+
+        .empty-state {
+            background: white; padding: 40px 20px; border-radius: 25px;
+            text-align: center; border: 2px dashed #d1d5db; color: #65676b;
+        }
+        .empty-state i { font-size: 50px; color: #d1d5db; margin-bottom: 15px; }
+
+        .footer-text { text-align: center; margin-top: 30px; font-size: 12px; color: #8a8d91; line-height: 1.6; padding: 0 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <a href="dashboard.html" class="back-btn"><i class="fas fa-chevron-left"></i></a>
+            <h2 style="margin:0; font-weight: 800;">My Investments</h2>
+        </div>
+
+        <div class="total-card">
+            <h3>Active Capital</h3>
+            <h1 id="total-invested-display">$0.00</h1>
+        </div>
+
+        <div class="section-title"><i class="fas fa-chart-line" style="color: var(--success);"></i> Live Plan Status</div>
+        
+        <div id="plan-status-container">
+            <div class="empty-state">
+                <i class="fas fa-spinner fa-spin" style="color: var(--primary);"></i>
+                <p>Syncing with Blockchain...</p>
+            </div>
+        </div>
+
+        <p class="footer-text">
+            Investment plans are locked for <b>30 days</b>. Profits are credited to your main balance every 24 hours.
+        </p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
+            authDomain: "dreamsag-17ed9.firebaseapp.com",
+            projectId: "dreamsag-17ed9",
+            databaseURL: "https://dreamsag-17ed9-default-rtdb.firebaseio.com/",
+            appId: "1:414865998660:web:5b81b4249ff9e359594d11"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Fixed Reference to match dashboard logic
+                onValue(ref(db, 'users/' + user.uid), (snapshot) => {
+                    const data = snapshot.val();
+                    const statusContainer = document.getElementById('plan-status-container');
+                    const totalDisplay = document.getElementById('total-invested-display');
+                    
+                    if (data && data.planStatus === "Active" && data.activePlanId) {
+                        const planId = parseInt(data.activePlanId);
+                        const investmentAmount = planId * 30; 
+                        const rates = [0, 2, 2.2, 2.5, 2.8, 3.0];
+                        const dailyRate = rates[planId] || 0;
+                        const dailyProfit = (investmentAmount * (dailyRate/100)).toFixed(2);
+
+                        totalDisplay.innerText = "$" + investmentAmount.toFixed(2);
+                        
+                        statusContainer.innerHTML = `
+                            <div class="active-plan-card">
+                                <div class="plan-header">
+                                    <span style="font-weight: 800; font-size: 18px;">Level ${planId} Package</span>
+                                    <span class="plan-badge"><i class="fas fa-circle" style="font-size: 8px;"></i> Running</span>
+                                </div>
+                                <div class="info-grid">
+                                    <div class="info-item"><span>Daily Return</span><b>${dailyRate}%</b></div>
+                                    <div class="info-item"><span>Daily Profit</span><b>$${dailyProfit}</b></div>
+                                    <div class="info-item"><span>Total Return</span><b>$${(dailyProfit * 30).toFixed(2)}</b></div>
+                                    <div class="info-item"><span>Duration</span><b>30 Days</b></div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        totalDisplay.innerText = "$0.00";
+                        statusContainer.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-folder-open"></i>
+                                <p style="font-weight: 700; margin: 0;">No Active Plans</p>
+                                <span style="font-size: 12px;">Visit Dashboard to start investing.</span>
+                            </div>
+                        `;
+                    }
+                });
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+    </script>
+</body>
+</html>

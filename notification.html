@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSag - Notifications</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
+        .notif-card { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid #0866ff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .notif-title { font-weight: bold; color: #1c1e21; }
+        .notif-msg { font-size: 14px; color: #65676b; margin-top: 5px; }
+        .error-msg { text-align: center; color: red; margin-top: 50px; }
+    </style>
+</head>
+<body>
+    <h2>Notifications</h2>
+    <div id="notif-list">Checking for updates...</div>
+    <br>
+    <a href="dashboard.html" style="text-decoration:none; color:#0866ff; font-weight:bold;">← Back</a>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
+            authDomain: "dreamsag-17ed9.firebaseapp.com",
+            projectId: "dreamsag-17ed9",
+            databaseURL: "https://dreamsag-17ed9-default-rtdb.firebaseio.com/",
+            appId: "1:414865998660:web:5b81b4249ff9e359594d11"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        onValue(ref(db, 'notifications'), (snapshot) => {
+            const listDiv = document.getElementById('notif-list');
+            listDiv.innerHTML = "";
+            if (snapshot.exists()) {
+                snapshot.forEach(child => {
+                    const n = child.val();
+                    listDiv.innerHTML += `
+                        <div class="notif-card">
+                            <div class="notif-title">${n.title || 'System Update'}</div>
+                            <div class="notif-msg">${n.message || ''}</div>
+                        </div>`;
+                });
+            } else {
+                listDiv.innerHTML = "No notifications yet.";
+            }
+        }, (error) => {
+            document.getElementById('notif-list').innerHTML = `<div class="error-msg">Permission Denied! Please Publish Rules in Firebase.</div>`;
+        });
+    </script>
+</body>
+</html>

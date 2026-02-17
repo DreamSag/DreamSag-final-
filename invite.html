@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSag - Invite Friends</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root { --primary: #0866ff; --bg: #f0f2f5; --card: #ffffff; --success: #28a745; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; justify-content: center; }
+        
+        .card { background: white; padding: 25px; border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); width: 100%; max-width: 380px; text-align: center; box-sizing: border-box; }
+        
+        .reward-banner { background: linear-gradient(135deg, #ffd700, #ffa500); border-radius: 24px; padding: 20px 15px; margin-bottom: 25px; color: #333; box-shadow: 0 8px 20px rgba(255, 165, 0, 0.3); }
+        .reward-banner h1 { margin: 0; font-size: 26px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .reward-list { background: rgba(255, 255, 255, 0.4); border-radius: 15px; margin-top: 15px; padding: 12px; text-align: left; }
+        .reward-item { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; border-bottom: 1px dashed rgba(0,0,0,0.1); padding: 7px 0; }
+        .reward-item:last-child { border: none; }
+        .reward-item span:last-child { color: #d35400; }
+
+        .instruction-text { color: #65676b; font-size: 13px; margin: 20px 0; line-height: 1.5; font-weight: 500; padding: 0 10px; }
+        .instruction-text b { color: var(--primary); }
+
+        .link-container { background: #f0f7ff; border: 2px dashed var(--primary); padding: 18px; border-radius: 20px; margin: 15px 0; }
+        .link-label { font-size: 11px; color: var(--primary); font-weight: 800; margin-bottom: 10px; display: block; text-transform: uppercase; letter-spacing: 1px; }
+        .link-text { font-family: 'Courier New', monospace; font-size: 11px; color: #333; word-break: break-all; margin-bottom: 15px; display: block; background: white; padding: 12px; border-radius: 12px; border: 1px solid #e4e6eb; font-weight: 600; }
+        
+        .copy-btn { background: var(--primary); color: white; border: none; width: 100%; padding: 16px; border-radius: 15px; font-weight: bold; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.3s; box-shadow: 0 4px 12px rgba(8, 102, 255, 0.2); }
+        .copy-btn:active { transform: scale(0.96); }
+
+        .back-link { display: block; margin-top: 25px; color: #65676b; text-decoration: none; font-size: 14px; font-weight: 700; transition: 0.3s; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="reward-banner">
+        <h1>Invite Rewards</h1>
+        <p style="font-size: 12px; font-weight: 800; margin: 5px 0; opacity: 0.8;">Earn commission on every referral!</p>
+        
+        <div class="reward-list">
+            <div class="reward-item"><span>Level 1 ($30)</span> <span>+$3.00 Reward</span></div>
+            <div class="reward-item"><span>Level 2 ($60)</span> <span>+$6.00 Reward</span></div>
+            <div class="reward-item"><span>Level 3 ($90)</span> <span>+$9.00 Reward</span></div>
+            <div class="reward-item"><span>Level 4 ($120)</span> <span>+$12.00 Reward</span></div>
+            <div class="reward-item"><span>Level 5 ($150)</span> <span>+$15.00 Reward</span></div>
+        </div>
+    </div>
+
+    <div class="instruction-text">
+        Note: Reward tab milega jab aapka referral <b>Plan Active</b> karega. Aapko milenge 10% tak ke rewards aur 1 Free Spin!
+    </div>
+
+    <div class="link-container">
+        <span class="link-label">Your Unique Referral Link</span>
+        <span class="link-text" id="ref-link">Generating link...</span>
+        <button class="copy-btn" id="copy-btn">
+            <i class="fas fa-copy"></i> Copy & Share Link
+        </button>
+    </div>
+
+    <a href="dashboard.html" class="back-link">← Back to Dashboard</a>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
+        authDomain: "dreamsag-17ed9.firebaseapp.com",
+        projectId: "dreamsag-17ed9",
+        databaseURL: "https://dreamsag-17ed9-default-rtdb.firebaseio.com/",
+        appId: "1:414865998660:web:5b81b4249ff9e359594d11"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            const fullLink = window.location.origin + "/register.html?ref=" + user.uid;
+            document.getElementById('ref-link').innerText = fullLink;
+        } else {
+            window.location.href = "index.html";
+        }
+    });
+
+    document.getElementById('copy-btn').onclick = async function() {
+        const link = document.getElementById('ref-link').innerText;
+        if(link === "Generating link...") return;
+
+        // Navigator Share for Mobile
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Join DreamSag',
+                    text: 'Join DreamSag and earn daily profit! Use my referral link:',
+                    url: link,
+                });
+            } catch (err) {
+                copyToClipboard(link);
+            }
+        } else {
+            copyToClipboard(link);
+        }
+    }
+
+    function copyToClipboard(link) {
+        navigator.clipboard.writeText(link).then(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Link Copied!',
+                text: 'Share it with your friends to earn rewards.',
+                timer: 2000,
+                showConfirmButton: false,
+                background: '#fff',
+                iconColor: '#28a745',
+                borderRadius: '20px'
+            });
+        });
+    }
+</script>
+</body>
+</html>

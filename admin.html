@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSag - Master Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <style>
+        :root { --primary: #0866ff; --success: #28a745; --danger: #dc3545; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; }
+        #lock-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; align-items: center; justify-content: center; text-align: center; }
+        .box { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #eef0f2; }
+        h2 { color: #1c1e21; font-size: 18px; margin: 0 0 15px 0; font-weight: 800; border-left: 4px solid var(--primary); padding-left: 10px; }
+        input { width: 100%; padding: 12px; margin-bottom: 12px; border: 1.5px solid #ddd; border-radius: 12px; box-sizing: border-box; outline: none; }
+        .btn-update { background: var(--primary); width: 100%; padding: 15px; border: none; border-radius: 12px; color: white; font-weight: bold; cursor: pointer; }
+        .scroll-box { overflow-x: auto; border-radius: 15px; background: white; max-height: 400px; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th { text-align: left; font-size: 11px; color: #8a8d91; padding: 15px; background: #fafafa; text-transform: uppercase; }
+        td { padding: 15px; border-bottom: 1px solid #f0f2f5; font-size: 13px; }
+        .user-id { font-family: monospace; background: #eef4ff; padding: 4px 8px; border-radius: 6px; font-size: 11px; color: var(--primary); font-weight: bold; cursor: pointer; }
+        .btn-action { padding: 8px 12px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 11px; color: white; margin-right: 5px; }
+        .btn-approve { background: var(--success); }
+        .btn-reject { background: var(--danger); }
+        .status-badge { padding: 4px 8px; border-radius: 5px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+<div id="lock-screen">
+    <div>
+        <i class="fas fa-user-shield fa-3x" style="color:#0866ff; margin-bottom:15px;"></i>
+        <h2>Admin Authentication</h2>
+        <p id="lock-msg">Checking credentials...</p>
+    </div>
+</div>
+
+<div id="admin-ui" style="display:none;">
+    <div style="display:flex; justify-content: space-between; align-items: center; padding: 10px 5px 20px;">
+        <h1 style="font-size: 22px; font-weight: 900;">DreamSag Master</h1>
+        <button onclick="logout()" style="background:#fff; border:1px solid #ddd; padding:10px 20px; border-radius:12px; font-weight:bold; color:#dc3545;">Logout</button>
+    </div>
+
+    <div class="box">
+        <h2>Quick User Manager (Balance Up/Down)</h2>
+        <input type="text" id="uId" placeholder="Paste User UID...">
+        <div style="display:flex; gap:10px;">
+            <input type="number" id="uAmt" placeholder="Balance Change (Use - to deduct)">
+            <input type="number" id="uSpin" placeholder="Add/Remove Spins">
+        </div>
+        <button class="btn-update" onclick="updateNow()">Apply Changes</button>
+    </div>
+
+    <div class="box">
+        <h2>Pending Deposits</h2>
+        <div class="scroll-box">
+            <table>
+                <thead><tr><th>User UID</th><th>Amount</th><th>Proof</th><th>Actions</th></tr></thead>
+                <tbody id="dTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="box">
+        <h2>Pending Withdrawals</h2>
+        <div class="scroll-box">
+            <table>
+                <thead><tr><th>User UID</th><th>Amount</th><th>Wallet</th><th>Actions</th></tr></thead>
+                <tbody id="wTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="box" style="border-top: 5px solid var(--primary);">
+        <h2><i class="fas fa-history"></i> Master Action Records (History)</h2>
+        <div class="scroll-box">
+            <table>
+                <thead><tr><th>Type</th><th>User UID</th><th>Amount</th><th>Status</th><th>Time</th></tr></thead>
+                <tbody id="hTable"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const config = {
+        apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
+        authDomain: "dreamsag-17ed9.firebaseapp.com",
+        projectId: "dreamsag-17ed9",
+        databaseURL: "https://dreamsag-17ed9-default-rtdb.firebaseio.com/",
+        appId: "1:414865998660:web:5b81b4249ff9e359594d11"
+    };
+
+    firebase.initializeApp(config);
+    const db = firebase.database();
+    const auth = firebase.auth();
+    const ADMIN_EMAIL = "dreamsagweb@gmail.com";
+
+    auth.onAuthStateChanged((user) => {
+        if (user && user.email === ADMIN_EMAIL) {
+            document.getElementById('lock-screen').style.display = 'none';
+            document.getElementById('admin-ui').style.display = 'block';
+            loadData(); loadHistory();
+        } else {
+            document.getElementById('lock-msg').innerHTML = "Access Denied";
+        }
+    });
+
+    function loadData() {
+        db.ref('deposits').orderByChild('status').equalTo('Pending').on('value', (snap) => {
+            const t = document.getElementById('dTable'); t.innerHTML = "";
+            snap.forEach((child) => {
+                const d = child.val();
+                t.innerHTML += `<tr>
+                    <td><span class="user-id" onclick="copyUID('${d.uid}')">${d.uid}</span></td>
+                    <td style="color:#28a745; font-weight:bold;">$${d.amount}</td>
+                    <td><button class="btn-action" style="background:#6c757d" onclick="Swal.fire({imageUrl:'${d.proofImage}'})">View</button></td>
+                    <td>
+                        <button class="btn-action btn-approve" onclick="action('deposits','${child.key}','Success','${d.uid}',${d.amount})">Approve</button>
+                        <button class="btn-action btn-reject" onclick="action('deposits','${child.key}','Rejected','${d.uid}',0)">Reject</button>
+                    </td>
+                </tr>`;
+            });
+        });
+
+        db.ref('withdrawals').orderByChild('status').equalTo('Pending').on('value', (snap) => {
+            const t = document.getElementById('wTable'); t.innerHTML = "";
+            snap.forEach((child) => {
+                const d = child.val();
+                t.innerHTML += `<tr>
+                    <td><span class="user-id" onclick="copyUID('${d.uid}')">${d.uid}</span></td>
+                    <td style="color:#dc3545; font-weight:bold;">$${d.amount}</td>
+                    <td><small>${d.walletAddress}</small></td>
+                    <td>
+                        <button class="btn-action btn-approve" onclick="action('withdrawals','${child.key}','Success','${d.uid}',0)">Mark Paid</button>
+                        <button class="btn-action btn-reject" onclick="action('withdrawals','${child.key}','Rejected','${d.uid}',${d.amount})">Reject</button>
+                    </td>
+                </tr>`;
+            });
+        });
+    }
+
+    // FIXED: Correct balance targeting for Dashboard "Investment Wallet"
+    window.action = (path, key, status, uid, amt) => {
+        const msg = status === 'Success' ? 'Approve' : 'Reject';
+        Swal.fire({ title: msg + '?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#28a745' }).then((res) => {
+            if (res.isConfirmed) {
+                if (path === 'deposits' && status === 'Success') {
+                    const userRef = db.ref('users/' + uid);
+                    userRef.once('value').then(s => { 
+                        // Target 'depositBalance' for Investment Wallet
+                        let currentBal = parseFloat(s.val().depositBalance || 0);
+                        userRef.update({ depositBalance: currentBal + parseFloat(amt) }); 
+                    });
+                }
+                if (path === 'withdrawals' && status === 'Rejected') {
+                    const userRef = db.ref('users/' + uid);
+                    userRef.once('value').then(s => { 
+                        // If withdrawal rejected, return funds to 'earningBalance'
+                        let currentEarn = parseFloat(s.val().earningBalance || 0);
+                        userRef.update({ earningBalance: currentEarn + parseFloat(amt) }); 
+                    });
+                }
+                db.ref(path + '/' + key).update({ status: status, processedAt: Date.now() });
+                Swal.fire('Done!', 'Request ' + status, 'success');
+            }
+        });
+    }
+
+    function loadHistory() {
+        const hTable = document.getElementById('hTable');
+        db.ref('deposits').on('value', (dSnap) => {
+            db.ref('withdrawals').on('value', (wSnap) => {
+                hTable.innerHTML = "";
+                let all = [];
+                dSnap.forEach(c => { if(c.val().status !== 'Pending') all.push({...c.val(), type: 'Deposit'}); });
+                wSnap.forEach(c => { if(c.val().status !== 'Pending') all.push({...c.val(), type: 'Withdraw'}); });
+                
+                all.sort((a,b) => b.processedAt - a.processedAt).forEach(item => {
+                    const color = item.status === 'Success' ? '#28a745' : '#dc3545';
+                    hTable.innerHTML += `<tr>
+                        <td><b>${item.type}</b></td>
+                        <td><small>${item.uid}</small></td>
+                        <td>$${item.amount}</td>
+                        <td><span class="status-badge" style="background:${color}; color:white">${item.status}</span></td>
+                        <td><small>${new Date(item.processedAt).toLocaleString()}</small></td>
+                    </tr>`;
+                });
+            });
+        });
+    }
+
+    // FIXED: Quick Manager now updates correct dashboard variables
+    window.updateNow = () => {
+        const id = document.getElementById('uId').value;
+        const amt = parseFloat(document.getElementById('uAmt').value || 0);
+        const spins = parseInt(document.getElementById('uSpin').value || 0);
+        if(!id) return Swal.fire('Error', 'Paste UID', 'error');
+
+        db.ref('users/' + id).once('value').then(s => {
+            if(s.exists()){
+                let oldDep = parseFloat(s.val().depositBalance || 0);
+                let oldSpins = parseInt(s.val().spinCount || 0);
+                db.ref('users/' + id).update({ 
+                    depositBalance: oldDep + amt, 
+                    spinCount: oldSpins + spins 
+                });
+                Swal.fire('Success!', `Updated`, 'success');
+            } else { Swal.fire('Error', 'User not found', 'error'); }
+        });
+    }
+
+    window.copyUID = (id) => { document.getElementById('uId').value = id; Swal.fire({title:'UID Selected', timer:800, showConfirmButton:false}); };
+    window.logout = () => { auth.signOut().then(() => window.location.href="index.html"); }
+</script>
+</body>
+</html>

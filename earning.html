@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSag - My Earnings</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root { --primary: #0866ff; --bg: #f0f2f5; --card: #ffffff; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; justify-content: center; }
+        
+        .container { width: 100%; max-width: 420px; text-align: center; }
+        
+        .header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; text-align: left; }
+        .back-btn { text-decoration: none; color: #333; background: white; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        /* Main Earnings Card */
+        .main-card { 
+            background: linear-gradient(135deg, #1d2b64, #f8ad9d); 
+            color: white; padding: 40px 20px; border-radius: 30px; 
+            margin-bottom: 25px; box-shadow: 0 15px 35px rgba(29, 43, 100, 0.2); 
+            position: relative; overflow: hidden; 
+        }
+        .main-card h3 { margin: 0; font-size: 13px; opacity: 0.8; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; }
+        .main-card h1 { margin: 12px 0 0; font-size: 45px; font-weight: 900; }
+        .main-card::before { content: ''; position: absolute; top: -20%; right: -10%; width: 150px; height: 150px; background: rgba(255,255,255,0.1); border-radius: 50%; }
+        
+        /* Stats Grid */
+        .earning-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .small-card { 
+            background: white; padding: 20px 15px; border-radius: 25px; 
+            border: 1px solid rgba(0,0,0,0.03); text-align: left; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.02);
+            transition: 0.3s;
+        }
+        .icon-box { 
+            width: 35px; height: 35px; border-radius: 10px; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 16px; margin-bottom: 12px; 
+        }
+        .bg-blue { background: #eef4ff; color: #0866ff; }
+        .bg-green { background: #e8f5e9; color: #2e7d32; }
+        .bg-orange { background: #fff3e0; color: #ef6c00; }
+        .bg-purple { background: #f3e5f5; color: #7b1fa2; }
+        
+        .small-card h4 { margin: 0; font-size: 10px; color: #8a8d91; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; }
+        .small-card p { margin: 6px 0 0; font-size: 18px; font-weight: 900; color: #1c1e21; }
+
+        .loader-box { padding: 50px; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <a href="dashboard.html" class="back-btn"><i class="fas fa-chevron-left"></i></a>
+        <h2 style="margin:0; font-size: 20px; font-weight: 800;">My Profits</h2>
+    </div>
+
+    <div class="main-card">
+        <h3>Withdrawable Balance</h3>
+        <h1 id="total-earn">$0.00</h1>
+        <div id="sync-status" style="font-size: 10px; margin-top: 10px; opacity: 0.7;">
+            <i class="fas fa-sync fa-spin"></i> Syncing with wallet...
+        </div>
+    </div>
+
+    <div class="earning-grid" id="stats-grid" style="display: none;">
+        <div class="small-card">
+            <div class="icon-box bg-blue"><i class="fas fa-chart-line"></i></div>
+            <h4>Daily Profit</h4>
+            <p id="daily-earn">$0.00</p>
+        </div>
+        <div class="small-card">
+            <div class="icon-box bg-green"><i class="fas fa-users"></i></div>
+            <h4>Team Rewards</h4>
+            <p id="team-earn">$0.00</p>
+        </div>
+        <div class="small-card">
+            <div class="icon-box bg-orange"><i class="fas fa-dharmachakra"></i></div>
+            <h4>Spin Wins</h4>
+            <p id="spin-earn">$0.00</p>
+        </div>
+        <div class="small-card">
+            <div class="icon-box bg-purple"><i class="fas fa-calendar-check"></i></div>
+            <h4>Daily Check-in</h4>
+            <p id="checkin-earn">$0.00</p>
+        </div>
+    </div>
+
+    <div id="initial-loader" class="loader-box">
+        <i class="fas fa-circle-notch fa-spin fa-2x"></i>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // Re-linking your verified Firebase config
+    const firebaseConfig = {
+        apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
+        authDomain: "dreamsag-17ed9.firebaseapp.com",
+        projectId: "dreamsag-17ed9",
+        databaseURL: "https://dreamsag-17ed9-default-rtdb.firebaseio.com/",
+        appId: "1:414865998660:web:5b81b4249ff9e359594d11"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            onValue(ref(db, 'users/' + user.uid), (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    document.getElementById('initial-loader').style.display = 'none';
+                    document.getElementById('stats-grid').style.display = 'grid';
+                    document.getElementById('sync-status').innerHTML = '<i class="fas fa-check-circle"></i> Live Data Secured';
+
+                    // Balance Display Logic
+                    document.getElementById('total-earn').innerText = "$" + parseFloat(data.earningBalance || 0).toFixed(2);
+                    
+                    // Specific Earnings Breakdown
+                    document.getElementById('daily-earn').innerText = "$" + parseFloat(data.dailyEarnings || 0).toFixed(2);
+                    document.getElementById('team-earn').innerText = "$" + parseFloat(data.referralEarnings || 0).toFixed(2);
+                    document.getElementById('spin-earn').innerText = "$" + parseFloat(data.spinEarnings || 0).toFixed(2);
+                    
+                    // Fixed Check-in logic (matching your DB structure)
+                    const checkinRewards = data.totalCheckinRewards || data.checkinTotal || 0;
+                    document.getElementById('checkin-earn').innerText = "$" + parseFloat(checkinRewards).toFixed(2);
+                }
+            });
+        } else {
+            window.location.href = "index.html";
+        }
+    });
+</script>
+
+</body>
+</html>

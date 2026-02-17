@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSag - Deposit Funds</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root { --primary: #0866ff; --bg: #f0f2f5; --card: #ffffff; --text: #1c1e21; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; justify-content: center; }
+        
+        .card { background: white; padding: 25px; border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); width: 100%; max-width: 400px; text-align: center; }
+        .header-title { color: var(--primary); font-size: 24px; font-weight: 800; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        
+        .instruction-box { background: #fff9e6; border-left: 4px solid #ffcc00; padding: 15px; text-align: left; font-size: 13px; margin-bottom: 20px; border-radius: 12px; line-height: 1.6; color: #5c4d00; }
+        
+        .address-container { background: #f0f7ff; border: 2px dashed #0866ff; padding: 20px; border-radius: 18px; margin: 15px 0; }
+        .address-label { font-size: 11px; color: var(--primary); font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block; }
+        .address-text { font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold; word-break: break-all; color: #333; margin-bottom: 15px; display: block; background: white; padding: 10px; border-radius: 10px; }
+        
+        .copy-btn { background: var(--primary); border: none; color: white; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 14px; width: 100%; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .copy-btn:active { transform: scale(0.95); }
+
+        .form-group { text-align: left; margin-top: 20px; }
+        label { font-size: 13px; color: #666; font-weight: 700; margin-left: 5px; }
+        
+        input { width: 100%; padding: 14px; margin: 8px 0 18px 0; border: 1.5px solid #e4e6eb; border-radius: 14px; box-sizing: border-box; font-size: 14px; outline: none; transition: 0.3s; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(8, 102, 255, 0.1); }
+
+        .btn-submit { background: #28a745; color: white; border: none; width: 100%; padding: 16px; border-radius: 16px; font-weight: bold; font-size: 16px; margin-top: 10px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2); }
+        .btn-submit:active { transform: scale(0.96); }
+        .btn-submit:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
+        
+        .back-link { display: block; margin-top: 25px; color: #65676b; text-decoration: none; font-size: 14px; font-weight: 700; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="header-title"><i class="fas fa-wallet"></i> Deposit Funds</div>
+    
+    <div class="instruction-box">
+        <strong><i class="fas fa-exclamation-triangle"></i> Important Note:</strong><br>
+        1. Copy USDT (<b>TRC20</b>) address only.<br>
+        2. Minimum deposit is <b>$30</b>.<br>
+        3. Manual verification takes 1-6 hours.
+    </div>
+
+    <div class="address-container">
+        <span class="address-label">Network: USDT (TRC20)</span>
+        <span class="address-text" id="wallet-address">TMUPJkctocmCyiZX43o7g7AP27rKfUpch6</span>
+        <button class="copy-btn" onclick="copyAddress()">
+            <i class="far fa-copy"></i> Copy Address
+        </button>
+    </div>
+
+    <div class="form-group">
+        <label>Deposit Amount (USDT)</label>
+        <input type="number" id="dep-amount" placeholder="Min $30" min="30">
+        
+        <label>Payment Screenshot</label>
+        <input type="file" id="dep-screenshot" accept="image/*">
+        <p style="font-size: 10px; color: #888; margin-top: -10px; margin-left: 5px;">Upload a clear screenshot of your transaction.</p>
+    </div>
+
+    <button class="btn-submit" id="submit-btn" onclick="handleDeposit()">
+        Confirm Deposit <i class="fas fa-check-circle"></i>
+    </button>
+
+    <a href="dashboard.html" class="back-link">← Return to Dashboard</a>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
+        authDomain: "dreamsag-17ed9.firebaseapp.com",
+        projectId: "dreamsag-17ed9",
+        databaseURL: "https://dreamsag-17ed9-default-rtdb.firebaseio.com/",
+        appId: "1:414865998660:web:5b81b4249ff9e359594d11"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    let currentUserId = null;
+    let currentUserEmail = null;
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            currentUserId = user.uid;
+            currentUserEmail = user.email;
+        } else {
+            window.location.href = "index.html";
+        }
+    });
+
+    window.copyAddress = function() {
+        const text = document.getElementById('wallet-address').innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Copied!',
+                text: 'Wallet address copied to clipboard.',
+                timer: 1500,
+                showConfirmButton: false,
+                borderRadius: '20px'
+            });
+        });
+    }
+
+    function getBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    window.handleDeposit = async function() {
+        const amount = document.getElementById('dep-amount').value;
+        const fileInput = document.getElementById('dep-screenshot');
+        const btn = document.getElementById('submit-btn');
+
+        if (!amount || amount < 30) {
+            Swal.fire('Error', 'Minimum deposit is $30', 'error');
+            return;
+        }
+        if (!fileInput.files[0]) {
+            Swal.fire('Error', 'Please upload payment screenshot', 'warning');
+            return;
+        }
+
+        try {
+            // Loading alert
+            Swal.fire({
+                title: 'Processing...',
+                text: 'Uploading your request',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            btn.disabled = true;
+            const base64Image = await getBase64(fileInput.files[0]);
+
+            const requestRef = ref(db, 'deposits');
+            const newRequest = push(requestRef);
+
+            await set(newRequest, {
+                uid: currentUserId,
+                email: currentUserEmail,
+                amount: parseFloat(amount),
+                proofImage: base64Image,
+                status: "Pending",
+                date: new Date().toLocaleDateString(),
+                timestamp: Date.now()
+            });
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: 'Deposit request submitted. Verification in progress.',
+                confirmButtonColor: '#28a745'
+            }).then(() => {
+                window.location.href = "dashboard.html";
+            });
+
+        } catch (err) {
+            Swal.fire('Error', err.message, 'error');
+            btn.disabled = false;
+        }
+    }
+</script>
+
+</body>
+</html>
