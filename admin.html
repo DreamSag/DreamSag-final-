@@ -166,7 +166,7 @@
             if(!snap.exists()) html += "<tr><td colspan='2'>No team found</td></tr>";
             snap.forEach(child => {
                 const u = child.val();
-                const status = (u.planStatus === 'Active') ? 'Active' : 'Inactive';
+                const status = (u.activePlanId || u.depositBalance > 0) ? 'Active' : 'Inactive';
                 html += `<tr><td>${u.email}</td><td><b style="color:${status=='Active'?'green':'red'}">${status}</b></td></tr>`;
             });
             log.innerHTML = html;
@@ -183,15 +183,15 @@
             confirmButtonText: 'Yes, Proceed'
         }).then((res) => {
             if (res.isConfirmed) {
+                const now = Date.now();
+                
+                // 1. Logic for Deposits
                 if (path === 'deposits' && status === 'Success') {
                     db.ref('users/' + uid).once('value').then(s => { 
                         const userData = s.val();
                         let currentBal = parseFloat(userData.depositBalance || 0);
-                        
-                        // 1. Update User Balance
                         db.ref('users/' + uid).update({ depositBalance: currentBal + parseFloat(amt) }); 
 
-                        // 2. SPIN REWARD: Give 1 Spin to Referrer [cite: 2026-02-16]
                         if(userData.referredBy) {
                             const refId = userData.referredBy;
                             db.ref('users/' + refId).once('value').then(refSnap => {
@@ -204,14 +204,32 @@
                     });
                 }
                 
-                if (path === 'withdrawals' && status === 'Rejected') {
-                    db.ref('users/' + uid).once('value').then(s => { 
-                        let currentEarn = parseFloat(s.val().earningBalance || 0);
-                        db.ref('users/' + uid).update({ earningBalance: currentEarn + parseFloat(amt) }); 
-                    });
+                // 2. Logic for Withdrawals (Status Syncing)
+                if (path === 'withdrawals') {
+                    const updates = {};
+                    // Update main withdrawal node
+                    updates['withdrawals/' + key + '/status'] = status;
+                    updates['withdrawals/' + key + '/processedAt'] = now;
+                    // SYNC: Update user's personal withdrawal history node
+                    updates['users/' + uid + '/withdrawals/' + key + '/status'] = status;
+                    updates['users/' + uid + '/withdrawals/' + key + '/processedAt'] = now;
+
+                    if (status === 'Rejected') {
+                        db.ref('users/' + uid).once('value').then(s => { 
+                            let currentEarn = parseFloat(s.val().earningBalance || 0);
+                            // Refund balance if rejected
+                            db.ref('users/' + uid).update({ 
+                                earningBalance: currentEarn + parseFloat(amt) 
+                            }); 
+                        });
+                    }
+                    
+                    db.ref().update(updates);
+                } else {
+                    // Regular update for deposits
+                    db.ref(path + '/' + key).update({ status: status, processedAt: now });
                 }
-                
-                db.ref(path + '/' + key).update({ status: status, processedAt: Date.now() });
+
                 Swal.fire('Success!', 'Request has been ' + status, 'success');
             }
         });
@@ -263,9 +281,9 @@
                 t.innerHTML += `<tr>
                     <td><span class="user-id" onclick="copyUID('${d.uid}')">${d.uid}</span></td>
                     <td style="color:#dc3545; font-weight:bold;">$${d.amount}</td>
-                    <td><small>${d.walletAddress}</small></td>
+                    <td><small>${d.wallet || d.walletAddress}</small></td>
                     <td>
-                        <button class="btn-action btn-approve" onclick="action('withdrawals','${child.key}','Success','${d.uid}',0)">Mark Paid</button>
+                        <button class="btn-action btn-approve" onclick="action('withdrawals','${child.key}','Success','${d.uid}',${d.amount})">Mark Paid</button>
                         <button class="btn-action btn-reject" onclick="action('withdrawals','${child.key}','Rejected','${d.uid}',${d.amount})">Reject</button>
                     </td>
                 </tr>`;

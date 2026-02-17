@@ -52,7 +52,7 @@
             <h4><i class="fas fa-shield-alt"></i> Withdrawal Rules:</h4>
             <p>
                 • Minimum: <b>$30.00</b><br>
-                • Frequency: <b>2 Times / Month</b><br>
+                • Frequency: <b>5 Times / Month</b><br>
                 • Requirement: <b>2 Active Direct Referrals</b>
             </p>
         </div>
@@ -134,7 +134,7 @@
                     throw new Error(`Insufficient earning balance. You have $${earningBalance.toFixed(2)}`);
                 }
 
-                // 2. Monthly Limit Check (Max 2)
+                // 2. Monthly Limit Check (Set to 5) [cite: 2026-02-16]
                 const withdrawals = userData.withdrawals ? Object.values(userData.withdrawals) : [];
                 const now = new Date();
                 const currentMonthRequests = withdrawals.filter(w => {
@@ -142,11 +142,11 @@
                     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
                 }).length;
 
-                if (currentMonthRequests >= 2) {
-                    throw new Error("Monthly withdrawal limit reached (Max 2 per month).");
+                if (currentMonthRequests >= 5) {
+                    throw new Error("Monthly withdrawal limit reached (Max 5 per month).");
                 }
 
-                // 3. Referral Check (2 Active Members)
+                // 3. Referral Check (2 Active Members) [cite: 2026-02-16]
                 const q = query(ref(db, 'users'), orderByChild('referredBy'), equalTo(user.uid));
                 const refSnap = await get(q);
                 let activeRefCount = 0;

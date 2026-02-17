@@ -26,6 +26,7 @@
         .card-info b { display: block; font-size: 16px; color: #1c1e21; }
         .card-info small { color: #94a3b8; font-size: 12px; }
         .status { padding: 6px 12px; border-radius: 10px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+        /* Matching status classes with admin colors */
         .status.success { background: #e1f9f0; color: #10b981; }
         .status.pending { background: #fff4e5; color: #f59e0b; }
         .status.rejected { background: #fee2e2; color: #ef4444; }
@@ -45,8 +46,7 @@
         <div class="tab" onclick="loadHistory('withdrawals', this)">Withdrawals</div>
     </div>
 
-    <div id="history-list" class="list-container">
-        </div>
+    <div id="history-list" class="list-container"></div>
 
     <script>
         const config = {
@@ -61,7 +61,6 @@
         const auth = firebase.auth();
 
         function loadHistory(path, el) {
-            // Tab switch logic
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             el.classList.add('active');
 
@@ -71,22 +70,30 @@
             const listDiv = document.getElementById('history-list');
             listDiv.innerHTML = '<div class="empty-msg">Loading history...</div>';
 
-            // Indexing ka istamaal karte huye data mangwana
-            db.ref(path).orderByChild('uid').equalTo(user.uid).once('value', (snapshot) => {
+            // User ki apni node se data uthana zyada fast aur accurate hai (Sync issue hal ho jayega)
+            db.ref('users/' + user.uid + '/' + path).once('value', (snapshot) => {
                 listDiv.innerHTML = '';
                 if (!snapshot.exists()) {
-                    listDiv.innerHTML = '<div class="empty-msg">No transactions found.</div>';
+                    listDiv.innerHTML = '<div class="empty-msg">No ' + path + ' found.</div>';
                     return;
                 }
 
+                let items = [];
                 snapshot.forEach((child) => {
-                    const data = child.val();
+                    items.push(child.val());
+                });
+
+                // Latest transaction top par dikhane ke liye
+                items.reverse().forEach((data) => {
+                    // Date handling (supports both formats)
+                    const displayDate = data.date || data.processedAt || Date.now();
                     const statusClass = data.status.toLowerCase();
+                    
                     listDiv.innerHTML += `
                         <div class="card">
                             <div class="card-info">
                                 <b>$${parseFloat(data.amount).toFixed(2)}</b>
-                                <small>${new Date(data.timestamp).toLocaleString()}</small>
+                                <small>${new Date(displayDate).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</small>
                             </div>
                             <div class="status ${statusClass}">${data.status}</div>
                         </div>
