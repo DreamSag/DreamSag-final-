@@ -15,10 +15,9 @@
         
         .back-btn { text-decoration: none; color: #65676b; font-weight: 700; display: flex; align-items: center; gap: 5px; margin: 10px; font-size: 14px; }
         
-        /* Responsive Wheel Styling */
         .wheel-container { 
             position: relative; 
-            width: 85vw; /* Mobile responsive width */
+            width: 85vw; 
             height: 85vw; 
             max-width: 350px; 
             max-height: 350px; 
@@ -69,7 +68,7 @@
             transition: 0.3s; width: 70%; max-width: 220px;
         }
         .spin-btn:active { transform: scale(0.95); }
-        .spin-btn:disabled { background: #ccc; box-shadow: none; }
+        .spin-btn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
 
         .spins-left-card { 
             background: white; display: inline-block; padding: 8px 20px; 
@@ -103,7 +102,6 @@
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getDatabase, ref, onValue, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Firebase Config (Verified from your previous records)
         const firebaseConfig = {
             apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
             authDomain: "dreamsag-17ed9.firebaseapp.com",
@@ -119,8 +117,8 @@
         const segments = [
             { text: "$0.50", value: 0.50 }, { text: "Try Again", value: 0 },
             { text: "$1.00", value: 1.00 }, { text: "$0.50", value: 0.50 },
-            { text: "iPhone", value: 0 },    { text: "$1.00", value: 1.00 },
-            { text: "$0.50", value: 0.50 }, { text: "Bike", value: 0 }
+            { text: "$0.20", value: 0.20 }, { text: "$1.00", value: 1.00 },
+            { text: "$0.50", value: 0.50 }, { text: "$0.10", value: 0.10 }
         ];
 
         const wheel = document.getElementById('wheel');
@@ -140,7 +138,7 @@
             if (user) {
                 onValue(ref(db, 'users/' + user.uid), (snap) => {
                     const data = snap.val() || {};
-                    currentSpins = data.spinCount || 0;
+                    currentSpins = parseInt(data.spinCount || 0);
                     document.getElementById('user-spins').innerText = currentSpins;
                     if(!isSpinning) document.getElementById('spin-btn').disabled = (currentSpins < 1);
                 });
@@ -150,48 +148,65 @@
         document.getElementById('spin-btn').onclick = async function() {
             if (isSpinning || currentSpins < 1) return;
             
+            const user = auth.currentUser;
+            const userRef = ref(db, 'users/' + user.uid);
+            
+            const freshSnap = await get(userRef);
+            const freshData = freshSnap.val();
+            if(!freshData || (freshData.spinCount || 0) < 1) {
+                Swal.fire('Error', 'No spins available!', 'error');
+                return;
+            }
+
             isSpinning = true;
             this.disabled = true;
-            
-            const winAmount = Math.random() > 0.20 ? 0.50 : 1.00; // Adjusted odds
+
+            const rand = Math.random();
+            let winAmount = 0.10;
+            if (rand > 0.90) winAmount = 1.00;
+            else if (rand > 0.70) winAmount = 0.50;
+            else if (rand > 0.40) winAmount = 0.20;
+
             const validIndices = segments.map((s, i) => s.value === winAmount ? i : -1).filter(i => i !== -1);
             const targetIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
             
             const segmentDeg = 45;
-            const extraDeg = 1440; // 4 full circles for speed
+            const extraDeg = 1800; 
             const stopAt = 360 - (targetIndex * segmentDeg) - (segmentDeg / 2);
             rotation += extraDeg + stopAt;
             
             wheel.style.transform = `rotate(${rotation}deg)`;
 
             setTimeout(async () => {
-                const user = auth.currentUser;
                 try {
-                    const snap = await get(ref(db, 'users/' + user.uid));
-                    const data = snap.val() || {};
+                    const finalSnap = await get(userRef);
+                    const finalData = finalSnap.val();
 
                     const updates = {};
-                    // Updated to 'earningBalance' to match your dashboard sync
-                    updates['users/' + user.uid + '/earningBalance'] = (data.earningBalance || 0) + winAmount;
-                    updates['users/' + user.uid + '/spinCount'] = data.spinCount - 1;
+                    updates['users/' + user.uid + '/earningBalance'] = (finalData.earningBalance || 0) + winAmount;
+                    // --- SPIN REPORT UPDATE (ISSUE NO. 4) ---
+                    updates['users/' + user.uid + '/spinEarnings'] = (finalData.spinEarnings || 0) + winAmount; 
+                    updates['users/' + user.uid + '/spinCount'] = (finalData.spinCount || 0) - 1;
 
                     await update(ref(db), updates);
                     
-                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                    if(winAmount > 0) {
+                        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                    }
 
                     Swal.fire({
-                        title: winAmount > 0 ? 'Winner!' : 'Better Luck Next Time!',
-                        text: winAmount > 0 ? `You won $${winAmount.toFixed(2)}!` : 'Try again!',
+                        title: winAmount > 0 ? 'Congratulations!' : 'Better Luck Next Time!',
+                        text: winAmount > 0 ? `You won $${winAmount.toFixed(2)} added to your earnings!` : 'Try again!',
                         icon: winAmount > 0 ? 'success' : 'info',
                         confirmButtonColor: '#0866ff'
                     });
 
                 } catch (err) {
-                    Swal.fire('Error', 'Transaction failed.', 'error');
+                    Swal.fire('Error', 'Something went wrong.', 'error');
                 }
                 isSpinning = false;
                 document.getElementById('spin-btn').disabled = (currentSpins < 1);
-            }, 4000);
+            }, 4100);
         };
     </script>
 </body>

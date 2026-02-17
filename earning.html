@@ -101,7 +101,6 @@
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Re-linking your verified Firebase config
     const firebaseConfig = {
         apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
         authDomain: "dreamsag-17ed9.firebaseapp.com",
@@ -123,17 +122,21 @@
                     document.getElementById('stats-grid').style.display = 'grid';
                     document.getElementById('sync-status').innerHTML = '<i class="fas fa-check-circle"></i> Live Data Secured';
 
-                    // Balance Display Logic
-                    document.getElementById('total-earn').innerText = "$" + parseFloat(data.earningBalance || 0).toFixed(2);
+                    // Main Balance
+                    document.getElementById('total-earn').innerText = "$" + (data.earningBalance || 0).toFixed(2);
                     
-                    // Specific Earnings Breakdown
-                    document.getElementById('daily-earn').innerText = "$" + parseFloat(data.dailyEarnings || 0).toFixed(2);
-                    document.getElementById('team-earn').innerText = "$" + parseFloat(data.referralEarnings || 0).toFixed(2);
-                    document.getElementById('spin-earn').innerText = "$" + parseFloat(data.spinEarnings || 0).toFixed(2);
+                    // Daily Profit (From Plans)
+                    document.getElementById('daily-earn').innerText = "$" + (data.dailyEarnings || 0).toFixed(2);
                     
-                    // Fixed Check-in logic (matching your DB structure)
-                    const checkinRewards = data.totalCheckinRewards || data.checkinTotal || 0;
-                    document.getElementById('checkin-earn').innerText = "$" + parseFloat(checkinRewards).toFixed(2);
+                    // Team Rewards (Referrals)
+                    document.getElementById('team-earn').innerText = "$" + (data.referralEarnings || 0).toFixed(2);
+                    
+                    // --- ISSUE NO. 4 UPDATES ---
+                    // Spin Wins (Now matching spin.html's new node)
+                    document.getElementById('spin-earn').innerText = "$" + (data.spinEarnings || 0).toFixed(2);
+                    
+                    // Daily Check-in (Now matching dashboard.html's new node)
+                    document.getElementById('checkin-earn').innerText = "$" + (data.totalCheckinRewards || 0).toFixed(2);
                 }
             });
         } else {

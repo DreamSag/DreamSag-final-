@@ -27,6 +27,7 @@
         .btn-approve { background: var(--success); }
         .btn-reject { background: var(--danger); }
         .status-badge { padding: 4px 8px; border-radius: 5px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .info-card { background: #f8f9fa; padding: 10px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #eee; }
     </style>
 </head>
 <body>
@@ -46,13 +47,41 @@
     </div>
 
     <div class="box">
-        <h2>Quick User Manager (Balance Up/Down)</h2>
-        <input type="text" id="uId" placeholder="Paste User UID...">
+        <h2><i class="fas fa-search"></i> User Control Panel (By UID)</h2>
         <div style="display:flex; gap:10px;">
-            <input type="number" id="uAmt" placeholder="Balance Change (Use - to deduct)">
-            <input type="number" id="uSpin" placeholder="Add/Remove Spins">
+            <input type="text" id="uId" placeholder="Paste User UID here...">
+            <button onclick="fetchUserDetails()" style="background:black; color:white; border-radius:12px; padding:0 20px; height:45px; border:none; cursor:pointer;">Search</button>
         </div>
-        <button class="btn-update" onclick="updateNow()">Apply Changes</button>
+        
+        <div id="user-details-area" style="display:none; margin-top:20px;">
+            <div class="info-card">
+                <p><strong>Email:</strong> <span id="det-email">-</span></p>
+                <p><strong>Withdrawal Balance:</strong> $<span id="det-earning">0</span></p>
+                <p><strong>Investment Wallet:</strong> $<span id="det-deposit">0</span></p>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div>
+                    <label style="font-size:11px; font-weight:bold;">+/- Withdrawal Balance</label>
+                    <input type="number" id="mod-earning" placeholder="Amount...">
+                </div>
+                <div>
+                    <label style="font-size:11px; font-weight:bold;">+/- Investment Wallet</label>
+                    <input type="number" id="mod-deposit" placeholder="Amount...">
+                </div>
+            </div>
+            <input type="number" id="uSpin" placeholder="Add/Remove Spins (e.g. 5 or -2)">
+            <button class="btn-update" onclick="updateNow()">Update User Data</button>
+
+            <div style="margin-top:20px;">
+                <h3 style="font-size:14px;">User Records & Team</h3>
+                <div class="scroll-box" style="max-height: 200px; border:1px solid #eee;">
+                    <table id="user-specific-table">
+                        <tbody id="user-activity-log"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="box">
@@ -76,7 +105,7 @@
     </div>
 
     <div class="box" style="border-top: 5px solid var(--primary);">
-        <h2><i class="fas fa-history"></i> Master Action Records (History)</h2>
+        <h2><i class="fas fa-history"></i> Global Action Records</h2>
         <div class="scroll-box">
             <table>
                 <thead><tr><th>Type</th><th>User UID</th><th>Amount</th><th>Status</th><th>Time</th></tr></thead>
@@ -109,6 +138,106 @@
             document.getElementById('lock-msg').innerHTML = "Access Denied";
         }
     });
+
+    function fetchUserDetails() {
+        const uid = document.getElementById('uId').value.trim();
+        if(!uid) return Swal.fire('Error', 'Please enter a UID', 'error');
+
+        db.ref('users/' + uid).on('value', (snap) => {
+            if(snap.exists()) {
+                const user = snap.val();
+                document.getElementById('user-details-area').style.display = 'block';
+                document.getElementById('det-email').innerText = user.email || 'N/A';
+                document.getElementById('det-earning').innerText = (user.earningBalance || 0).toFixed(2);
+                document.getElementById('det-deposit').innerText = (user.depositBalance || 0).toFixed(2);
+                loadUserSpecificData(uid);
+            } else {
+                Swal.fire('Error', 'User not found!', 'error');
+            }
+        });
+    }
+
+    function loadUserSpecificData(uid) {
+        const log = document.getElementById('user-activity-log');
+        log.innerHTML = "<tr><td colspan='2'>Loading team & history...</td></tr>";
+        
+        db.ref('users').orderByChild('referredBy').equalTo(uid).once('value', (snap) => {
+            let html = "<tr><td colspan='2' style='background:#eee'><b>Team Members</b></td></tr>";
+            if(!snap.exists()) html += "<tr><td colspan='2'>No team found</td></tr>";
+            snap.forEach(child => {
+                const u = child.val();
+                const status = (u.planStatus === 'Active') ? 'Active' : 'Inactive';
+                html += `<tr><td>${u.email}</td><td><b style="color:${status=='Active'?'green':'red'}">${status}</b></td></tr>`;
+            });
+            log.innerHTML = html;
+        });
+    }
+
+    window.action = (path, key, status, uid, amt) => {
+        const msg = status === 'Success' ? 'Approve' : 'Reject';
+        Swal.fire({ 
+            title: msg + '?', 
+            icon: 'warning', 
+            showCancelButton: true, 
+            confirmButtonColor: '#28a745',
+            confirmButtonText: 'Yes, Proceed'
+        }).then((res) => {
+            if (res.isConfirmed) {
+                if (path === 'deposits' && status === 'Success') {
+                    db.ref('users/' + uid).once('value').then(s => { 
+                        const userData = s.val();
+                        let currentBal = parseFloat(userData.depositBalance || 0);
+                        
+                        // 1. Update User Balance
+                        db.ref('users/' + uid).update({ depositBalance: currentBal + parseFloat(amt) }); 
+
+                        // 2. SPIN REWARD: Give 1 Spin to Referrer [cite: 2026-02-16]
+                        if(userData.referredBy) {
+                            const refId = userData.referredBy;
+                            db.ref('users/' + refId).once('value').then(refSnap => {
+                                if(refSnap.exists()) {
+                                    let currentSpins = parseInt(refSnap.val().spinCount || 0);
+                                    db.ref('users/' + refId).update({ spinCount: currentSpins + 1 });
+                                }
+                            });
+                        }
+                    });
+                }
+                
+                if (path === 'withdrawals' && status === 'Rejected') {
+                    db.ref('users/' + uid).once('value').then(s => { 
+                        let currentEarn = parseFloat(s.val().earningBalance || 0);
+                        db.ref('users/' + uid).update({ earningBalance: currentEarn + parseFloat(amt) }); 
+                    });
+                }
+                
+                db.ref(path + '/' + key).update({ status: status, processedAt: Date.now() });
+                Swal.fire('Success!', 'Request has been ' + status, 'success');
+            }
+        });
+    }
+
+    window.updateNow = () => {
+        const id = document.getElementById('uId').value.trim();
+        const earnAmt = parseFloat(document.getElementById('mod-earning').value || 0);
+        const depAmt = parseFloat(document.getElementById('mod-deposit').value || 0);
+        const spins = parseInt(document.getElementById('uSpin').value || 0);
+
+        db.ref('users/' + id).once('value').then(s => {
+            if(s.exists()){
+                const d = s.val();
+                db.ref('users/' + id).update({ 
+                    earningBalance: parseFloat(d.earningBalance || 0) + earnAmt,
+                    depositBalance: parseFloat(d.depositBalance || 0) + depAmt, 
+                    spinCount: parseInt(d.spinCount || 0) + spins 
+                });
+                Swal.fire('Updated!', `User data changed successfully`, 'success');
+                document.getElementById('mod-earning').value = "";
+                document.getElementById('mod-deposit').value = "";
+                document.getElementById('uSpin').value = "";
+            }
+        });
+    }
 
     function loadData() {
         db.ref('deposits').orderByChild('status').equalTo('Pending').on('value', (snap) => {
@@ -144,33 +273,6 @@
         });
     }
 
-    // FIXED: Correct balance targeting for Dashboard "Investment Wallet"
-    window.action = (path, key, status, uid, amt) => {
-        const msg = status === 'Success' ? 'Approve' : 'Reject';
-        Swal.fire({ title: msg + '?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#28a745' }).then((res) => {
-            if (res.isConfirmed) {
-                if (path === 'deposits' && status === 'Success') {
-                    const userRef = db.ref('users/' + uid);
-                    userRef.once('value').then(s => { 
-                        // Target 'depositBalance' for Investment Wallet
-                        let currentBal = parseFloat(s.val().depositBalance || 0);
-                        userRef.update({ depositBalance: currentBal + parseFloat(amt) }); 
-                    });
-                }
-                if (path === 'withdrawals' && status === 'Rejected') {
-                    const userRef = db.ref('users/' + uid);
-                    userRef.once('value').then(s => { 
-                        // If withdrawal rejected, return funds to 'earningBalance'
-                        let currentEarn = parseFloat(s.val().earningBalance || 0);
-                        userRef.update({ earningBalance: currentEarn + parseFloat(amt) }); 
-                    });
-                }
-                db.ref(path + '/' + key).update({ status: status, processedAt: Date.now() });
-                Swal.fire('Done!', 'Request ' + status, 'success');
-            }
-        });
-    }
-
     function loadHistory() {
         const hTable = document.getElementById('hTable');
         db.ref('deposits').on('value', (dSnap) => {
@@ -179,7 +281,6 @@
                 let all = [];
                 dSnap.forEach(c => { if(c.val().status !== 'Pending') all.push({...c.val(), type: 'Deposit'}); });
                 wSnap.forEach(c => { if(c.val().status !== 'Pending') all.push({...c.val(), type: 'Withdraw'}); });
-                
                 all.sort((a,b) => b.processedAt - a.processedAt).forEach(item => {
                     const color = item.status === 'Success' ? '#28a745' : '#dc3545';
                     hTable.innerHTML += `<tr>
@@ -194,27 +295,7 @@
         });
     }
 
-    // FIXED: Quick Manager now updates correct dashboard variables
-    window.updateNow = () => {
-        const id = document.getElementById('uId').value;
-        const amt = parseFloat(document.getElementById('uAmt').value || 0);
-        const spins = parseInt(document.getElementById('uSpin').value || 0);
-        if(!id) return Swal.fire('Error', 'Paste UID', 'error');
-
-        db.ref('users/' + id).once('value').then(s => {
-            if(s.exists()){
-                let oldDep = parseFloat(s.val().depositBalance || 0);
-                let oldSpins = parseInt(s.val().spinCount || 0);
-                db.ref('users/' + id).update({ 
-                    depositBalance: oldDep + amt, 
-                    spinCount: oldSpins + spins 
-                });
-                Swal.fire('Success!', `Updated`, 'success');
-            } else { Swal.fire('Error', 'User not found', 'error'); }
-        });
-    }
-
-    window.copyUID = (id) => { document.getElementById('uId').value = id; Swal.fire({title:'UID Selected', timer:800, showConfirmButton:false}); };
+    window.copyUID = (id) => { document.getElementById('uId').value = id; fetchUserDetails(); };
     window.logout = () => { auth.signOut().then(() => window.location.href="index.html"); }
 </script>
 </body>

@@ -28,6 +28,7 @@
 
         .btn-withdraw { background: linear-gradient(135deg, #ff4d4d 0%, #ff1a1a 100%); color: white; border: none; width: 100%; padding: 18px; border-radius: 18px; cursor: pointer; font-weight: 800; font-size: 16px; margin-top: 10px; transition: 0.3s; box-shadow: 0 8px 20px rgba(255, 77, 77, 0.3); }
         .btn-withdraw:active { transform: scale(0.97); }
+        .btn-withdraw:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
 
         .history-title { font-weight: 900; margin: 30px 10px 15px; font-size: 20px; color: #1c1e21; }
         .history-item { background: white; padding: 18px; border-radius: 22px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; transition: 0.2s; }
@@ -84,7 +85,6 @@
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getDatabase, ref, push, onValue, get, update, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Your Config
         const firebaseConfig = {
             apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
             authDomain: "dreamsag-17ed9.firebaseapp.com",
@@ -96,15 +96,6 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getDatabase(app);
-
-        // Professional Toast Notification
-        const Toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 3000,
-            timerProgressBar: true
-        });
 
         onAuthStateChanged(auth, (user) => {
             if (user) { loadWithdrawHistory(user.uid); }
@@ -118,7 +109,6 @@
             const whatsapp = document.getElementById('wd-whatsapp').value.trim();
             const user = auth.currentUser;
 
-            // Basic Validations with SweetAlert2
             if (!amount || amount < 30) {
                 return Swal.fire('Amount Error', 'Minimum withdrawal is $30.00', 'warning');
             }
@@ -126,9 +116,10 @@
                 return Swal.fire('Fields Missing', 'Please provide wallet and WhatsApp.', 'warning');
             }
 
-            // Start Loading state
+            btn.disabled = true;
             Swal.fire({
-                title: 'Checking Requirements...',
+                title: 'Processing...',
+                text: 'Verifying rules and balance',
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
@@ -136,40 +127,45 @@
             try {
                 const userSnap = await get(ref(db, 'users/' + user.uid));
                 const userData = userSnap.val();
+                const earningBalance = userData.earningBalance || 0;
 
                 // 1. Balance Check
-                if (userData.totalBalance < amount) {
-                    throw new Error("Insufficient balance in your account.");
+                if (earningBalance < amount) {
+                    throw new Error(`Insufficient earning balance. You have $${earningBalance.toFixed(2)}`);
                 }
 
-                // 2. Monthly Limit Check
+                // 2. Monthly Limit Check (Max 2)
                 const withdrawals = userData.withdrawals ? Object.values(userData.withdrawals) : [];
-                const currentMonth = new Date().getMonth();
-                const currentYear = new Date().getFullYear();
-                const monthlyCount = withdrawals.filter(w => {
+                const now = new Date();
+                const currentMonthRequests = withdrawals.filter(w => {
                     const d = new Date(w.date);
-                    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+                    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
                 }).length;
 
-                if (monthlyCount >= 2) throw new Error("Monthly limit reached (Max 2 per month).");
+                if (currentMonthRequests >= 2) {
+                    throw new Error("Monthly withdrawal limit reached (Max 2 per month).");
+                }
 
-                // 3. Referral Check (Dheet logic)
+                // 3. Referral Check (2 Active Members)
                 const q = query(ref(db, 'users'), orderByChild('referredBy'), equalTo(user.uid));
                 const refSnap = await get(q);
                 let activeRefCount = 0;
+                
                 if (refSnap.exists()) {
                     refSnap.forEach((child) => {
                         const member = child.val();
-                        // Check if member has active plan
-                        if (member.activeInvestment || member.plan || member.activePlanId) activeRefCount++;
+                        // Active if has activePlanId OR has made any deposit
+                        if (member.activePlanId || (member.depositBalance > 0)) {
+                            activeRefCount++;
+                        }
                     });
                 }
                 
                 if (activeRefCount < 2) {
-                    throw new Error(`You need 2 active referrals. Current: ${activeRefCount}`);
+                    throw new Error(`2 active direct members required. Current active: ${activeRefCount}`);
                 }
 
-                // Everything is OK - Proceed
+                // SUCCESS - Process Withdrawal
                 const newWdRef = push(ref(db, 'withdrawals'));
                 const wdId = newWdRef.key;
                 const wdData = { 
@@ -181,7 +177,7 @@
                 };
 
                 const updates = {};
-                updates['users/' + user.uid + '/totalBalance'] = userData.totalBalance - amount;
+                updates['users/' + user.uid + '/earningBalance'] = earningBalance - amount;
                 updates['users/' + user.uid + '/withdrawals/' + wdId] = wdData;
                 updates['withdrawals/' + wdId] = wdData;
 
@@ -189,8 +185,8 @@
 
                 Swal.fire({
                     icon: 'success',
-                    title: 'Request Sent!',
-                    text: 'Your withdrawal is being processed by admin.',
+                    title: 'Request Submitted!',
+                    text: 'Your $'+amount+' withdrawal is pending approval.',
                     confirmButtonColor: '#ff4d4d'
                 });
                 
@@ -198,7 +194,9 @@
                 document.getElementById('wd-wallet').value = "";
 
             } catch (err) {
-                Swal.fire('Request Failed', err.message, 'error');
+                Swal.fire('Request Denied', err.message, 'error');
+            } finally {
+                btn.disabled = false;
             }
         };
 
@@ -208,7 +206,7 @@
                 container.innerHTML = "";
                 const data = snap.val();
                 if (!data) {
-                    container.innerHTML = "<div style='text-align:center; padding:40px; opacity:0.5; font-size:13px;'>No transactions found yet.</div>";
+                    container.innerHTML = "<div style='text-align:center; padding:40px; opacity:0.5; font-size:13px;'>No withdrawal history yet.</div>";
                     return;
                 }
                 

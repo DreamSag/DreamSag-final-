@@ -104,8 +104,8 @@
                             dateStr = isNaN(d.getTime()) ? "Verified" : d.toLocaleDateString();
                         }
 
-                        // STATUS: Balance check + Investment check
-                        const active = (parseFloat(m.totalBalance) > 0 || m.activeInvestment || m.plan) ? true : false;
+                        // FIXED STATUS LOGIC: Now checks the actual planStatus we set in Dashboard
+                        const isActive = (m.planStatus === "Active");
 
                         html += `
                         <div class="member-card">
@@ -116,8 +116,8 @@
                                     <p><i class="far fa-calendar-alt"></i> Joined: ${dateStr}</p>
                                 </div>
                             </div>
-                            <span class="status-badge ${active ? 'active' : 'inactive'}">
-                                ${active ? 'Active' : 'Inactive'}
+                            <span class="status-badge ${isActive ? 'active' : 'inactive'}">
+                                ${isActive ? 'Active' : 'Inactive'}
                             </span>
                         </div>`;
                     });

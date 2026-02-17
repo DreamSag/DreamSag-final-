@@ -71,7 +71,6 @@
         .info-note-box ul { margin: 0; padding-left: 20px; }
         .info-note-box li { font-size: 12px; color: #444; margin-bottom: 8px; line-height: 1.6; font-weight: 600; }
 
-        /* FOOTER LOCKED STYLES */
         .master-footer { background: #1c1e21; color: #aeb2b7; padding: 50px 20px 30px; margin-top: 40px; border-radius: 30px 30px 0 0; }
         .footer-logo { font-size: 24px; font-weight: 900; color: white; margin-bottom: 15px; }
         .footer-logo span { color: var(--light-blue); }
@@ -262,11 +261,11 @@
 
         function renderPlans(userData = {}) {
             const container = document.getElementById('plans-container');
-            const activeInvestments = userData.activeInvestments || {};
-            const activePlanIds = Object.values(activeInvestments).map(inv => inv.planId);
+            const planStatus = userData.planStatus || "Inactive";
+            const activePlanId = userData.activePlanId;
 
             container.innerHTML = plans.map(p => {
-                const isActive = activePlanIds.includes(p.id);
+                const isActive = (planStatus === "Active" && activePlanId == p.id);
                 return `
                     <div class="plan-card">
                         <div class="plan-info"><h4>${p.name}</h4><p>$${p.price} • ${(p.rate*100).toFixed(1)}% Daily</p></div>
@@ -286,35 +285,41 @@
             const data = snap.val();
 
             if ((data.depositBalance || 0) < price) {
-                return Swal.fire({ icon: 'error', title: 'Insufficient Balance', text: 'Please deposit funds to buy this plan.', confirmButtonColor: '#0866ff' });
+                return Swal.fire({ icon: 'error', title: 'Insufficient Balance', text: 'Low Investment Wallet balance.', confirmButtonColor: '#0866ff' });
+            }
+            
+            if (data.planStatus === "Active") {
+                return Swal.fire({ icon: 'info', title: 'Plan Active', text: 'You already have an active plan.' });
             }
 
             Swal.fire({
                 title: 'Confirm Investment',
-                text: `Do you want to invest $${price} in Level ${planId}?`,
+                text: `Invest $${price}?`,
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonText: 'Yes, Invest',
-                confirmButtonColor: '#0866ff',
-                cancelButtonColor: '#ff4d4d'
+                confirmButtonText: 'Invest',
+                confirmButtonColor: '#0866ff'
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    const planKey = push(ref(db, 'users/' + user.uid + '/activeInvestments')).key;
+                    const planDetails = plans.find(p => p.id === planId);
                     const today = new Date();
                     today.setHours(0,0,0,0);
                     
                     const updates = {};
                     updates[`users/${user.uid}/depositBalance`] = parseFloat(data.depositBalance) - price;
+                    updates[`users/${user.uid}/planStatus`] = "Active";
+                    updates[`users/${user.uid}/activePlanId`] = planId;
+                    updates[`users/${user.uid}/activePlanAmount`] = price;
+                    updates[`users/${user.uid}/activePlanRate`] = (planDetails.rate * 100).toFixed(1);
+                    updates[`users/${user.uid}/lastProfitClaim`] = today.getTime();
+
+                    const planKey = push(ref(db, 'users/' + user.uid + '/activeInvestments')).key;
                     updates[`users/${user.uid}/activeInvestments/${planKey}`] = {
-                        planId: planId,
-                        amount: price,
-                        rate: plans.find(p => p.id === planId).rate,
-                        timestamp: Date.now(),
-                        lastProfitClaim: today.getTime()
+                        planId: planId, amount: price, rate: planDetails.rate, timestamp: Date.now(), lastProfitClaim: today.getTime()
                     };
 
                     update(ref(db), updates).then(() => {
-                        Swal.fire('Success!', 'Investment Active Now', 'success');
+                        Swal.fire('Success!', 'Investment Active', 'success');
                     });
                 }
             });
@@ -344,6 +349,7 @@
             }
         }
 
+        // --- DASHBOARD DAILY CHECK-IN UPDATE (ISSUE NO. 4) ---
         document.getElementById('checkin-btn').onclick = async () => {
             const user = auth.currentUser;
             const snap = await get(ref(db, 'users/' + user.uid));
@@ -351,11 +357,15 @@
             const now = Date.now();
             let streak = data.checkinStreak || 0;
             const reward = checkinRewards[streak % 7];
+
+            // Naya logic: Reports ke liye alag se totalCheckinRewards save ho raha hai
             const updates = {
                 [`users/${user.uid}/earningBalance`]: (data.earningBalance || 0) + reward,
+                [`users/${user.uid}/totalCheckinRewards`]: (data.totalCheckinRewards || 0) + reward, // For Reports Page
                 [`users/${user.uid}/checkinStreak`]: (streak + 1) % 7,
                 [`users/${user.uid}/lastCheckinDate`]: now
             };
+
             update(ref(db), updates).then(() => {
                 Swal.fire({ title: 'Bonus Claimed!', text: `You earned $${reward}`, icon: 'success', confirmButtonColor: '#0866ff' });
             });
@@ -369,7 +379,7 @@
 
         document.getElementById('logout-btn').onclick = () => {
             Swal.fire({
-                title: 'Logout?', text: 'Are you sure you want to exit?', icon: 'warning',
+                title: 'Logout?', text: 'Are you sure?', icon: 'warning',
                 showCancelButton: true, confirmButtonText: 'Logout', confirmButtonColor: '#ff4d4d'
             }).then((result) => {
                 if (result.isConfirmed) signOut(auth);
