@@ -261,18 +261,13 @@
 
         function renderPlans(userData = {}) {
             const container = document.getElementById('plans-container');
-            const planStatus = userData.planStatus || "Inactive";
-            const activePlanId = userData.activePlanId;
-
+            // Multiple plans allowed: We don't need to disable buttons based on 'planStatus' anymore.
             container.innerHTML = plans.map(p => {
-                const isActive = (planStatus === "Active" && activePlanId == p.id);
                 return `
                     <div class="plan-card">
                         <div class="plan-info"><h4>${p.name}</h4><p>$${p.price} • ${(p.rate*100).toFixed(1)}% Daily</p></div>
-                        <button class="plan-btn" 
-                            style="${isActive ? 'background:#28a745; cursor:default;' : ''}"
-                            onclick="${isActive ? '' : `buyPlan(${p.id}, ${p.price})`}">
-                            ${isActive ? '<i class="fas fa-check"></i> Active' : 'Invest Now'}
+                        <button class="plan-btn" onclick="buyPlan(${p.id}, ${p.price})">
+                            Invest Now
                         </button>
                     </div>
                 `;
@@ -285,20 +280,25 @@
             const data = snap.val();
 
             if ((data.depositBalance || 0) < price) {
-                return Swal.fire({ icon: 'error', title: 'Insufficient Balance', text: 'Low Investment Wallet balance.', confirmButtonColor: '#0866ff' });
+                return Swal.fire({ 
+                    icon: 'error', 
+                    title: 'Insufficient Balance', 
+                    text: 'Aapka Deposit Balance kam hai. Meherbani karke pehle deposit karein.', 
+                    confirmButtonColor: '#0866ff' 
+                });
             }
-            
-            if (data.planStatus === "Active") {
-                return Swal.fire({ icon: 'info', title: 'Plan Active', text: 'You already have an active plan.' });
-            }
+
+            // POINT SET: Removed the "Plan Active" restriction here to allow multiple purchases.
 
             Swal.fire({
                 title: 'Confirm Investment',
-                text: `Invest $${price}?`,
+                text: `Invest $${price} in this plan?`,
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonText: 'Invest',
-                confirmButtonColor: '#0866ff'
+                confirmButtonText: 'Yes, Buy Now!',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#0866ff',
+                cancelButtonColor: '#d33'
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     const planDetails = plans.find(p => p.id === planId);
@@ -309,17 +309,28 @@
                     updates[`users/${user.uid}/depositBalance`] = parseFloat(data.depositBalance) - price;
                     updates[`users/${user.uid}/planStatus`] = "Active";
                     updates[`users/${user.uid}/activePlanId`] = planId;
-                    updates[`users/${user.uid}/activePlanAmount`] = price;
+                    updates[`users/${user.uid}/activePlanAmount`] = (data.activePlanAmount || 0) + price;
                     updates[`users/${user.uid}/activePlanRate`] = (planDetails.rate * 100).toFixed(1);
                     updates[`users/${user.uid}/lastProfitClaim`] = today.getTime();
 
                     const planKey = push(ref(db, 'users/' + user.uid + '/activeInvestments')).key;
                     updates[`users/${user.uid}/activeInvestments/${planKey}`] = {
-                        planId: planId, amount: price, rate: planDetails.rate, timestamp: Date.now(), lastProfitClaim: today.getTime()
+                        planId: planId, 
+                        amount: price, 
+                        rate: planDetails.rate, 
+                        timestamp: Date.now(), 
+                        lastProfitClaim: today.getTime()
                     };
 
                     update(ref(db), updates).then(() => {
-                        Swal.fire('Success!', 'Investment Active', 'success');
+                        Swal.fire({
+                            title: 'Success!',
+                            text: 'Aapka naya plan active ho chuka hai.',
+                            icon: 'success',
+                            confirmButtonColor: '#28a745'
+                        });
+                    }).catch(error => {
+                        Swal.fire('Error', 'Investment failed. Please try again.', 'error');
                     });
                 }
             });
@@ -349,7 +360,6 @@
             }
         }
 
-        // --- DASHBOARD DAILY CHECK-IN UPDATE (ISSUE NO. 4) ---
         document.getElementById('checkin-btn').onclick = async () => {
             const user = auth.currentUser;
             const snap = await get(ref(db, 'users/' + user.uid));
@@ -358,29 +368,45 @@
             let streak = data.checkinStreak || 0;
             const reward = checkinRewards[streak % 7];
 
-            // Naya logic: Reports ke liye alag se totalCheckinRewards save ho raha hai
             const updates = {
                 [`users/${user.uid}/earningBalance`]: (data.earningBalance || 0) + reward,
-                [`users/${user.uid}/totalCheckinRewards`]: (data.totalCheckinRewards || 0) + reward, // For Reports Page
+                [`users/${user.uid}/totalCheckinRewards`]: (data.totalCheckinRewards || 0) + reward,
                 [`users/${user.uid}/checkinStreak`]: (streak + 1) % 7,
                 [`users/${user.uid}/lastCheckinDate`]: now
             };
 
             update(ref(db), updates).then(() => {
-                Swal.fire({ title: 'Bonus Claimed!', text: `You earned $${reward}`, icon: 'success', confirmButtonColor: '#0866ff' });
+                Swal.fire({ 
+                    title: 'Bonus Claimed!', 
+                    text: `You earned $${reward}`, 
+                    icon: 'success', 
+                    confirmButtonColor: '#0866ff' 
+                });
             });
         };
 
         window.copyUserID = () => {
             navigator.clipboard.writeText(auth.currentUser.uid).then(() => {
-                Swal.fire({ title: 'ID Copied!', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, icon: 'success' });
+                Swal.fire({ 
+                    title: 'ID Copied!', 
+                    toast: true, 
+                    position: 'top-end', 
+                    showConfirmButton: false, 
+                    timer: 2000, 
+                    icon: 'success' 
+                });
             });
         }
 
         document.getElementById('logout-btn').onclick = () => {
             Swal.fire({
-                title: 'Logout?', text: 'Are you sure?', icon: 'warning',
-                showCancelButton: true, confirmButtonText: 'Logout', confirmButtonColor: '#ff4d4d'
+                title: 'Logout?', 
+                text: 'Are you sure you want to exit?', 
+                icon: 'warning',
+                showCancelButton: true, 
+                confirmButtonText: 'Logout', 
+                confirmButtonColor: '#ff4d4d',
+                cancelButtonColor: '#6c757d'
             }).then((result) => {
                 if (result.isConfirmed) signOut(auth);
             });
