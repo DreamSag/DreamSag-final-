@@ -259,20 +259,37 @@
             }
         }
 
+        // --- POINT SET: Updated renderPlans to lock individual active plans ---
         function renderPlans(userData = {}) {
             const container = document.getElementById('plans-container');
-            // Multiple plans allowed: We don't need to disable buttons based on 'planStatus' anymore.
+            const activeInvestments = userData.activeInvestments || {};
+            
+            // Get all unique plan IDs that are already active for the user
+            const activePlanIds = Object.values(activeInvestments).map(inv => inv.planId);
+
             container.innerHTML = plans.map(p => {
+                const isAlreadyActive = activePlanIds.includes(p.id);
                 return `
                     <div class="plan-card">
                         <div class="plan-info"><h4>${p.name}</h4><p>$${p.price} • ${(p.rate*100).toFixed(1)}% Daily</p></div>
-                        <button class="plan-btn" onclick="buyPlan(${p.id}, ${p.price})">
-                            Invest Now
+                        <button class="plan-btn" 
+                            style="${isAlreadyActive ? 'background:#28a745; cursor:default;' : ''}"
+                            onclick="${isAlreadyActive ? `showAlreadyActiveAlert('${p.name}')` : `buyPlan(${p.id}, ${p.price})`}">
+                            ${isAlreadyActive ? '<i class="fas fa-check"></i> Active' : 'Invest Now'}
                         </button>
                     </div>
                 `;
             }).join('');
         }
+
+        window.showAlreadyActiveAlert = (planName) => {
+            Swal.fire({
+                title: 'Plan Active!',
+                text: `Aap ne ${planName} pehle hi buy kiya hua hai. Aap dusra level select kar sakte hain.`,
+                icon: 'info',
+                confirmButtonColor: '#0866ff'
+            });
+        };
 
         window.buyPlan = async (planId, price) => {
             const user = auth.currentUser;
@@ -288,7 +305,12 @@
                 });
             }
 
-            // POINT SET: Removed the "Plan Active" restriction here to allow multiple purchases.
+            // Additional security check before buying
+            const activeInvestments = data.activeInvestments || {};
+            const isAlreadyActive = Object.values(activeInvestments).some(inv => inv.planId === planId);
+            if(isAlreadyActive) {
+                return showAlreadyActiveAlert(plans.find(p => p.id === planId).name);
+            }
 
             Swal.fire({
                 title: 'Confirm Investment',
