@@ -212,6 +212,17 @@
             { id: 5, price: 150, rate: 0.03, name: "Level 5" }
         ];
 
+        // --- Notification Function ---
+        function sendNotification(uid, message) {
+            const notifRef = ref(db, 'notifications/' + uid);
+            const newNotifKey = push(notifRef).key;
+            update(ref(db, `notifications/${uid}/${newNotifKey}`), {
+                text: message,
+                timestamp: Date.now(),
+                status: 'unread'
+            });
+        }
+
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.getElementById('user-id-display').innerText = user.uid.substring(0, 8).toUpperCase();
@@ -256,15 +267,13 @@
             if (hasChanges) {
                 updates[`users/${uid}/earningBalance`] = (userData.earningBalance || 0) + totalNewProfit;
                 update(ref(db), updates);
+                sendNotification(uid, `System Update: Aapka daily profit $${totalNewProfit.toFixed(2)} add kar diya gaya hai.`);
             }
         }
 
-        // --- POINT SET: Updated renderPlans to lock individual active plans ---
         function renderPlans(userData = {}) {
             const container = document.getElementById('plans-container');
             const activeInvestments = userData.activeInvestments || {};
-            
-            // Get all unique plan IDs that are already active for the user
             const activePlanIds = Object.values(activeInvestments).map(inv => inv.planId);
 
             container.innerHTML = plans.map(p => {
@@ -285,7 +294,7 @@
         window.showAlreadyActiveAlert = (planName) => {
             Swal.fire({
                 title: 'Plan Active!',
-                text: `Aap ne ${planName} pehle hi buy kiya hua hai. Aap dusra level select kar sakte hain.`,
+                text: `Aap ne ${planName} pehle hi buy kiya hua hai.`,
                 icon: 'info',
                 confirmButtonColor: '#0866ff'
             });
@@ -297,30 +306,16 @@
             const data = snap.val();
 
             if ((data.depositBalance || 0) < price) {
-                return Swal.fire({ 
-                    icon: 'error', 
-                    title: 'Insufficient Balance', 
-                    text: 'Aapka Deposit Balance kam hai. Meherbani karke pehle deposit karein.', 
-                    confirmButtonColor: '#0866ff' 
-                });
-            }
-
-            // Additional security check before buying
-            const activeInvestments = data.activeInvestments || {};
-            const isAlreadyActive = Object.values(activeInvestments).some(inv => inv.planId === planId);
-            if(isAlreadyActive) {
-                return showAlreadyActiveAlert(plans.find(p => p.id === planId).name);
+                return Swal.fire({ icon: 'error', title: 'Insufficient Balance', text: 'Deposit Balance kam hai.', confirmButtonColor: '#0866ff' });
             }
 
             Swal.fire({
                 title: 'Confirm Investment',
-                text: `Invest $${price} in this plan?`,
+                text: `$${price} invest karein?`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Yes, Buy Now!',
-                cancelButtonText: 'Cancel',
-                confirmButtonColor: '#0866ff',
-                cancelButtonColor: '#d33'
+                confirmButtonColor: '#0866ff'
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     const planDetails = plans.find(p => p.id === planId);
@@ -329,12 +324,6 @@
                     
                     const updates = {};
                     updates[`users/${user.uid}/depositBalance`] = parseFloat(data.depositBalance) - price;
-                    updates[`users/${user.uid}/planStatus`] = "Active";
-                    updates[`users/${user.uid}/activePlanId`] = planId;
-                    updates[`users/${user.uid}/activePlanAmount`] = (data.activePlanAmount || 0) + price;
-                    updates[`users/${user.uid}/activePlanRate`] = (planDetails.rate * 100).toFixed(1);
-                    updates[`users/${user.uid}/lastProfitClaim`] = today.getTime();
-
                     const planKey = push(ref(db, 'users/' + user.uid + '/activeInvestments')).key;
                     updates[`users/${user.uid}/activeInvestments/${planKey}`] = {
                         planId: planId, 
@@ -345,14 +334,8 @@
                     };
 
                     update(ref(db), updates).then(() => {
-                        Swal.fire({
-                            title: 'Success!',
-                            text: 'Aapka naya plan active ho chuka hai.',
-                            icon: 'success',
-                            confirmButtonColor: '#28a745'
-                        });
-                    }).catch(error => {
-                        Swal.fire('Error', 'Investment failed. Please try again.', 'error');
+                        sendNotification(user.uid, `Investment Success: Aapka ${planDetails.name} ($${price}) plan active ho gaya hai.`);
+                        Swal.fire({ title: 'Success!', text: 'Plan active ho chuka hai.', icon: 'success' });
                     });
                 }
             });
@@ -386,49 +369,30 @@
             const user = auth.currentUser;
             const snap = await get(ref(db, 'users/' + user.uid));
             const data = snap.val();
-            const now = Date.now();
             let streak = data.checkinStreak || 0;
             const reward = checkinRewards[streak % 7];
 
             const updates = {
                 [`users/${user.uid}/earningBalance`]: (data.earningBalance || 0) + reward,
-                [`users/${user.uid}/totalCheckinRewards`]: (data.totalCheckinRewards || 0) + reward,
                 [`users/${user.uid}/checkinStreak`]: (streak + 1) % 7,
-                [`users/${user.uid}/lastCheckinDate`]: now
+                [`users/${user.uid}/lastCheckinDate`]: Date.now()
             };
 
             update(ref(db), updates).then(() => {
-                Swal.fire({ 
-                    title: 'Bonus Claimed!', 
-                    text: `You earned $${reward}`, 
-                    icon: 'success', 
-                    confirmButtonColor: '#0866ff' 
-                });
+                sendNotification(user.uid, `Bonus Claimed: Aapne Daily Check-in se $${reward} haasil kiye.`);
+                Swal.fire({ title: 'Bonus Claimed!', text: `You earned $${reward}`, icon: 'success' });
             });
         };
 
         window.copyUserID = () => {
             navigator.clipboard.writeText(auth.currentUser.uid).then(() => {
-                Swal.fire({ 
-                    title: 'ID Copied!', 
-                    toast: true, 
-                    position: 'top-end', 
-                    showConfirmButton: false, 
-                    timer: 2000, 
-                    icon: 'success' 
-                });
+                Swal.fire({ title: 'ID Copied!', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, icon: 'success' });
             });
         }
 
         document.getElementById('logout-btn').onclick = () => {
             Swal.fire({
-                title: 'Logout?', 
-                text: 'Are you sure you want to exit?', 
-                icon: 'warning',
-                showCancelButton: true, 
-                confirmButtonText: 'Logout', 
-                confirmButtonColor: '#ff4d4d',
-                cancelButtonColor: '#6c757d'
+                title: 'Logout?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Logout', confirmButtonColor: '#ff4d4d'
             }).then((result) => {
                 if (result.isConfirmed) signOut(auth);
             });

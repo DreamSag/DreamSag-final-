@@ -4,23 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DreamSag - Notifications</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
-        .notif-card { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid #0866ff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .notif-title { font-weight: bold; color: #1c1e21; }
-        .notif-msg { font-size: 14px; color: #65676b; margin-top: 5px; }
-        .error-msg { text-align: center; color: red; margin-top: 50px; }
+        :root { --primary: #0866ff; --bg: #f0f2f5; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; }
+        .header { background: white; padding: 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; }
+        .back-btn { text-decoration: none; color: #444; font-size: 20px; }
+        .header h2 { margin: 0; font-size: 18px; color: #1c1e21; }
+        
+        .notif-container { padding: 15px; }
+        .notif-card { background: white; padding: 15px; border-radius: 15px; margin-bottom: 10px; border-left: 5px solid var(--primary); display: flex; flex-direction: column; gap: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .notif-text { font-size: 14px; color: #1c1e21; font-weight: 500; }
+        .notif-time { font-size: 11px; color: #888; align-self: flex-end; }
+        .empty-state { text-align: center; padding: 50px 20px; color: #888; }
+        .empty-state i { font-size: 50px; margin-bottom: 10px; opacity: 0.3; }
     </style>
 </head>
 <body>
-    <h2>Notifications</h2>
-    <div id="notif-list">Checking for updates...</div>
-    <br>
-    <a href="dashboard.html" style="text-decoration:none; color:#0866ff; font-weight:bold;">← Back</a>
+
+    <div class="header">
+        <a href="dashboard.html" class="back-btn"><i class="fas fa-arrow-left"></i></a>
+        <h2>Notifications</h2>
+    </div>
+
+    <div id="notif-list" class="notif-container">
+        <div class="empty-state">
+            <i class="fas fa-bell-slash"></i>
+            <p>Koi naya notification nahi hai.</p>
+        </div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getDatabase, ref, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAab16yXGrK5CfUPZ57JgQ_3OxbtXReibY",
@@ -31,25 +51,33 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getDatabase(app);
 
-        onValue(ref(db, 'notifications'), (snapshot) => {
-            const listDiv = document.getElementById('notif-list');
-            listDiv.innerHTML = "";
-            if (snapshot.exists()) {
-                snapshot.forEach(child => {
-                    const n = child.val();
-                    listDiv.innerHTML += `
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const notifRef = ref(db, 'notifications/' + user.uid);
+                onValue(notifRef, (snapshot) => {
+                    const container = document.getElementById('notif-list');
+                    const data = snapshot.val();
+                    
+                    if (!data) {
+                        container.innerHTML = `<div class="empty-state"><i class="fas fa-bell-slash"></i><p>Abhi koi notification nahi hai.</p></div>`;
+                        return;
+                    }
+
+                    // Notifications ko array mein badal kar reverse karna (latest first)
+                    const list = Object.values(data).reverse();
+                    container.innerHTML = list.map(n => `
                         <div class="notif-card">
-                            <div class="notif-title">${n.title || 'System Update'}</div>
-                            <div class="notif-msg">${n.message || ''}</div>
-                        </div>`;
+                            <div class="notif-text">${n.text}</div>
+                            <div class="notif-time">${new Date(n.timestamp).toLocaleString()}</div>
+                        </div>
+                    `).join('');
                 });
             } else {
-                listDiv.innerHTML = "No notifications yet.";
+                window.location.href = "index.html";
             }
-        }, (error) => {
-            document.getElementById('notif-list').innerHTML = `<div class="error-msg">Permission Denied! Please Publish Rules in Firebase.</div>`;
         });
     </script>
 </body>
